@@ -31,7 +31,7 @@ export const WifiForm = ({ onSubmit }: WifiFormProps) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <label htmlFor="ssid" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="ssid" className="block  font-medium text-gray-700">
           Nom du reseau / SSID
         </label>
         <div className="mt-1">
@@ -48,7 +48,7 @@ export const WifiForm = ({ onSubmit }: WifiFormProps) => {
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="password" className="block font-medium text-gray-700">
           Mot de passe
         </label>
         <div className="mt-1">

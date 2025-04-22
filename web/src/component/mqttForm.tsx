@@ -53,7 +53,7 @@ export const MqttForm = ({ onSubmit }: MqttFormProps) => {
         </div>
       </div>
       <div>
-        <label htmlFor="broker" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="broker" className="block font-medium text-gray-700">
           Mqtt port
         </label>
         <div className="mt-1">
@@ -69,7 +69,7 @@ export const MqttForm = ({ onSubmit }: MqttFormProps) => {
         </div>
       </div>
       <div>
-        <label htmlFor="user" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="user" className="block font-medium text-gray-700">
           User
         </label>
         <div className="mt-1">
@@ -85,7 +85,7 @@ export const MqttForm = ({ onSubmit }: MqttFormProps) => {
         </div>
       </div>
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="password" className="block font-medium text-gray-700">
           Password
         </label>
         <div className="mt-1">
@@ -102,7 +102,7 @@ export const MqttForm = ({ onSubmit }: MqttFormProps) => {
       </div>
 
       <div>
-        <label htmlFor="topic" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="topic" className="block font-medium text-gray-700">
           Mqtt Topic
         </label>
         <div className="mt-1">

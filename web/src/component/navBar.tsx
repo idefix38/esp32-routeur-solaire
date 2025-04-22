@@ -62,7 +62,7 @@ export const Navbar = () => {
                 item.path == path
                   ? 'bg-indigo-500 text-white'
                   : 'text-gray-300 hover:bg-indigo-500 hover:text-white',
-                'block rounded-md px-3 py-2 text-base font-medium flex items-center space-x-2'
+                'block rounded-md px-3 py-2 text-base font-medium space-x-2'
               )}
             >
               <item.icon className="size-5" aria-hidden="true" />
