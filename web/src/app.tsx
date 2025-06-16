@@ -1,8 +1,8 @@
 import { Navbar } from './component/navBar'
-import { LocationProvider, Router } from 'preact-iso';
-import Home from './pages/home';
-import WifiPage from './pages/wifi';
-import MqttPage from './pages/mqtt';
+import { lazy, LocationProvider, Router } from 'preact-iso';
+const Home = lazy(() => import('./pages/home'));
+const WifiPage = lazy(() => import('./pages/wifi'));;
+const MqttPage  = lazy(() => import('./pages/mqtt'));;
 
 export interface pagePros {
   path : string

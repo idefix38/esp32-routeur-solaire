@@ -19,7 +19,7 @@ export const Temperature = ({ value }: TemperatureProps) => {
               </dt>
               <dd className="flex items-baseline">
                 <div className="text-2xl font-semibold text-gray-900">
-                  {value}°C
+                  {value !== null ? `${value}°C` : 'Chargement...'}°C
                 </div>
               </dd>
             </dl>
