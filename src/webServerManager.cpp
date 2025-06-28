@@ -128,6 +128,11 @@ void WebServerManager::setupLocalWeb()
     // Route principale qui sert le fichier index.html
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
               { request->send(SPIFFS, "/index.html", "text/html"); });
+
+    // L'Erreur 404 est géré par l'application Réact, on renvoi toujour index.html
+    server.onNotFound([](AsyncWebServerRequest *request)
+                      { request->send(SPIFFS, "/index.html", "text/html"); });
+
     server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
     Serial.println("[-] Serveur Web Ok");
 }
@@ -177,6 +182,8 @@ String WebServerManager::getContentType(String filename)
         return "image/jpeg";
     else if (filename.endsWith(".ico"))
         return "image/x-icon";
+    else if (filename.endsWith(".svg"))
+        return "image/svg+xml";
     else if (filename.endsWith(".xml"))
         return "text/xml";
     return "text/plain";

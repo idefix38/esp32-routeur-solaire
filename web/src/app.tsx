@@ -1,5 +1,8 @@
 import { Navbar } from './component/navBar'
 import { lazy, LocationProvider, Router } from 'preact-iso';
+import { ToastProvider, useToast } from './context/ToastContext';
+import { Toast } from './component/Toast';
+
 const Home = lazy(() => import('./pages/home'));
 const WifiPage = lazy(() => import('./pages/wifi'));;
 const MqttPage  = lazy(() => import('./pages/mqtt'));;
@@ -9,18 +12,24 @@ export interface pagePros {
 }
 
 
-export function App() {
+export function App(props: any) {
+  const { toast, setToast } = useToast();
   return (
-    <LocationProvider>  
-      <Navbar />    
+    <LocationProvider>
+    <ToastProvider>
+      <Navbar />          
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+      )}
       <Router>
         <Home path="/"></Home>
         <WifiPage path="/wifi"></WifiPage>
         <MqttPage path="/mqtt"></MqttPage>
         <NotFound default />
-      </Router>           
+      </Router>  
+    </ToastProvider>
     </LocationProvider>
-  )
+  );
 }
 
 type NotFoundProps = {

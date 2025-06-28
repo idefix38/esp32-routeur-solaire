@@ -1,4 +1,5 @@
-import { useState } from 'preact/hooks';
+import { Loader } from 'lucide-react';
+import { useEffect, useState } from 'preact/hooks';
 
 interface MqttFormData {
   broker: string;
@@ -10,16 +11,24 @@ interface MqttFormData {
 
 interface MqttFormProps {
   onSubmit: (data: MqttFormData) => void;
+  loading?: boolean;
+  initialValues?: MqttFormData | null;
 }
 
-export const MqttForm = ({ onSubmit }: MqttFormProps) => {
+export const MqttForm = ({ onSubmit, initialValues, loading }: MqttFormProps) => {
   const [formData, setFormData] = useState<MqttFormData>({
     broker: '',
     port: 1883,
     user: '',
     password: '',
-    topic: ''
+    topic: 'homeassistant'
   });
+
+  useEffect(() => {
+    if (initialValues) {
+      setFormData(initialValues);
+    }
+  }, [initialValues]);
 
   const handleSubmit = (e: Event) => {
     e.preventDefault();
@@ -30,7 +39,7 @@ export const MqttForm = ({ onSubmit }: MqttFormProps) => {
     const target = e.target as HTMLInputElement;
     setFormData({
       ...formData,
-      [target.name]: target.value,
+      [target.name]: target.type === 'number' ? Number(target.value) : target.value,
     });
   };
 
@@ -122,6 +131,9 @@ export const MqttForm = ({ onSubmit }: MqttFormProps) => {
           type="submit"
           className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
         >
+          {loading && (
+            <Loader className="mr-2 h-5 w-5 animate-spin text-white" />
+          )}
           Enregistrer
         </button>
       </div>

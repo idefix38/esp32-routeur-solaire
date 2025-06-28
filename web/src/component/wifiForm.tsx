@@ -1,4 +1,5 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
+import { Loader } from 'lucide-react';
 
 interface WifiFormData {
   ssid: string;
@@ -6,18 +7,30 @@ interface WifiFormData {
 }
 
 interface WifiFormProps {
-  onSubmit: (data: WifiFormData) => void;
+  onSubmit: (data: WifiFormData) => Promise<any>;
+  loading?: boolean;
+  initialValues?: WifiFormData | null;
 }
 
-export const WifiForm = ({ onSubmit }: WifiFormProps) => {
+export const WifiForm = ({
+  onSubmit,
+  loading = false,
+  initialValues,
+}: WifiFormProps) => {
   const [formData, setFormData] = useState<WifiFormData>({
     ssid: '',
     password: '',
   });
 
-  const handleSubmit = (e: Event) => {
+  useEffect(() => {
+    if (initialValues) {
+      setFormData(initialValues);
+    }
+  }, [initialValues]);
+
+  const handleSubmit = async (e: Event) => {
     e.preventDefault();
-    onSubmit(formData);
+    await onSubmit(formData);
   };
 
   const handleChange = (e: Event) => {
@@ -67,8 +80,12 @@ export const WifiForm = ({ onSubmit }: WifiFormProps) => {
       <div>
         <button
           type="submit"
-          className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+          className="flex w-full justify-center items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+          disabled={loading}
         >
+          {loading && (
+            <Loader className="mr-2 h-5 w-5 animate-spin text-white" />
+          )}
           Enregistrer
         </button>
       </div>
