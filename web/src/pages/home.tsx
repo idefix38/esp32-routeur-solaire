@@ -3,10 +3,19 @@ import { pagePros } from '../app';
 import { Temperature } from '../component/temperature';
 import { useEsp32Api } from '../hooks/useEsp32Api';
 
+/**
+ * Page for displaying the dashboard with the current temperature.
+ * It fetches the temperature from the ESP32 device and updates it every 30 seconds.
+ * @param props 
+ * @returns 
+ */
 export default function HomePage( props : pagePros) {
   const [temperature, setTemperature] = useState<number | null>(null);
   const { callApi } = useEsp32Api();
 
+  /**
+   * Fetch the current temperature from the ESP32 device.
+   */
   const fetchTemperature = async () => {
     try {
       const response = await callApi('/getTemperature', 

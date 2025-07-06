@@ -80,7 +80,7 @@ bool MqttManager::isConnected()
 void MqttManager::sendDiscovery()
 {
     // Créer un message JSON pour le discovery de Home Assistant
-    StaticJsonDocument<200> doc;
+    JsonDocument doc;
     doc["name"] = "ESP32 Temperature Sensor";
     doc["state_topic"] = topic + "/state";
     doc["unit_of_measurement"] = "°C";

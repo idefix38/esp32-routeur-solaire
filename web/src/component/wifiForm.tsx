@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef } from 'preact/hooks';
 import { Loader } from 'lucide-react';
 
 interface WifiFormData {
@@ -17,28 +17,21 @@ export const WifiForm = ({
   loading = false,
   initialValues,
 }: WifiFormProps) => {
-  const [formData, setFormData] = useState<WifiFormData>({
-    ssid: '',
-    password: '',
-  });
+  const ssidRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialValues) {
-      setFormData(initialValues);
+      if (ssidRef.current) ssidRef.current.value = initialValues.ssid;
+      if (passwordRef.current) passwordRef.current.value = initialValues.password;
     }
   }, [initialValues]);
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
-    await onSubmit(formData);
-  };
-
-  const handleChange = (e: Event) => {
-    const target = e.target as HTMLInputElement;
-    setFormData({
-      ...formData,
-      [target.name]: target.value,
-    });
+    const ssid = ssidRef.current?.value || '';
+    const password = passwordRef.current?.value || '';
+    await onSubmit({ ssid, password });
   };
 
   return (
@@ -53,8 +46,7 @@ export const WifiForm = ({
             name="ssid"
             type="text"
             required
-            value={formData.ssid}
-            onChange={handleChange}
+            ref={ssidRef}
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-lg px-4 py-3"
           />
         </div>
@@ -70,8 +62,7 @@ export const WifiForm = ({
             name="password"
             type="password"
             required
-            value={formData.password}
-            onChange={handleChange}
+            ref={passwordRef}
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-lg px-4 py-3"
           />
         </div>

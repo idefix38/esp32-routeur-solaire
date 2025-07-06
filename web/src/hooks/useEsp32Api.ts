@@ -5,7 +5,7 @@
 import { useState, useCallback } from 'preact/hooks';
 
 // Types des routes API disponibles
-export type ApiRoute = '/saveWifiSettings' | '/saveMqttSettings' | '/getTemperature' | '/getConfig';
+export type ApiRoute = '/saveWifiSettings' | '/saveMqttSettings' | '/getTemperature' | '/saveSolarSettings' | '/getConfig';
 
 // Structure de retour du callApi
 interface ApiResult {
@@ -22,6 +22,9 @@ interface UseEsp32ApiResult {
     ) => Promise<ApiResult>;
 }
 
+// Récupère l'URL de base de l'API depuis les variables d'environnement (Vite)
+
+
 // Hook principal
 export function useEsp32Api(): UseEsp32ApiResult {
     const [loading, setLoading] = useState(false);
@@ -31,7 +34,7 @@ export function useEsp32Api(): UseEsp32ApiResult {
         async (route: ApiRoute, options?: RequestInit): Promise<ApiResult> => {
             setLoading(true);
             try {
-                // Appel de l'API
+                // Si API_BASE_URL est défini (mode dev), on préfixe la route                
                 const response = await fetch(route, options);
                 // On tente de parser la réponse JSON
                 const data = await response.json().catch(() => ({}));

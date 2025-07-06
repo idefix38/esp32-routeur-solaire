@@ -2,6 +2,7 @@ import { Navbar } from './component/navBar'
 import { lazy, LocationProvider, Router } from 'preact-iso';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { Toast } from './component/Toast';
+import SolarPage from './pages/solar';
 
 const Home = lazy(() => import('./pages/home'));
 const WifiPage = lazy(() => import('./pages/wifi'));;
@@ -13,23 +14,27 @@ export interface pagePros {
 
 
 export function App(props: any) {
-  const { toast, setToast } = useToast();
   return (
     <LocationProvider>
-    <ToastProvider>
-      <Navbar />          
-      {toast && (
-        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-      )}
-      <Router>
-        <Home path="/"></Home>
-        <WifiPage path="/wifi"></WifiPage>
-        <MqttPage path="/mqtt"></MqttPage>
-        <NotFound default />
-      </Router>  
-    </ToastProvider>
+      <ToastProvider>
+        <Navbar />
+        <ToastContainer />
+        <Router>
+          <Home path="/" />
+          <WifiPage path="/wifi" />
+          <MqttPage path="/mqtt" />
+          <SolarPage path="/solar" />
+          <NotFound default />
+        </Router>
+      </ToastProvider>
     </LocationProvider>
   );
+}
+
+function ToastContainer() {
+  const { toast, setToast } = useToast();
+  if (!toast) return null;
+  return <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />;
 }
 
 type NotFoundProps = {

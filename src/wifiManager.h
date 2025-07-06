@@ -14,6 +14,7 @@ public:
 
     // Méthode de connexion
     String connect(const char *ssid, const char *password, int timeout = 10);
+    String findDeviceIpByNamePrefix(const String &prefix, const char *service, const char *proto);
 
 private:
     const char *ssid_ap;  // SSID pour le mode AP

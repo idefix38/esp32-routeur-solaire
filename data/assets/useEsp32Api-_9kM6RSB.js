@@ -1,1 +1,0 @@
-import{d as o,q as u}from"./index-y5u9UKsL.js";function i(){const[e,t]=o(!1),c=u(async(n,r)=>{t(!0);try{const s=await fetch(n,r),a=await s.json().catch(()=>({}));return s.ok?{data:a,success:!0}:{data:a,success:!1}}catch{return{data:null,success:!1}}finally{t(!1)}},[]);return{loading:e,callApi:c}}export{i as u};

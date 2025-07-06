@@ -8,7 +8,7 @@
 #include "configManager.h"
 
 ConfigManager configManager;
-ConfigTemperature config;
+Config config;
 
 WifiManager wifiManager;
 MqttManager mqttManager;

@@ -19,8 +19,10 @@ public:
 
 private:
     void handleGetConfig(AsyncWebServerRequest *request);
+    void addCorsHeaders(AsyncWebServerResponse *response);
     void handleSaveWifiSettings(AsyncWebServerRequest *request, uint8_t *data, size_t len);
     void handleSaveMqttSettings(AsyncWebServerRequest *request, uint8_t *data, size_t len);
+    void handleSaveSolarSettings(AsyncWebServerRequest *request, uint8_t *data, size_t len);
     String getContentType(String filename);
 
     ConfigManager &configManager;

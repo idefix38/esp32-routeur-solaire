@@ -9,7 +9,7 @@ WebServerManager::WebServerManager(ConfigManager &configManager)
 void WebServerManager::handleGetConfig(AsyncWebServerRequest *request)
 {
     Serial.println(" GET: /getConfig");
-    ConfigTemperature config = this->configManager.loadConfig();
+    Config config = this->configManager.loadConfig();
 
     JsonDocument doc;
     JsonObject wifiObj = doc["wifi"].to<JsonObject>();
@@ -23,9 +23,14 @@ void WebServerManager::handleGetConfig(AsyncWebServerRequest *request)
     mqttObj["password"] = config.mqttPassword;
     mqttObj["topic"] = config.mqttTopic;
 
+    JsonObject shellyObj = doc["shelly"].to<JsonObject>();
+    shellyObj["ip"] = config.shellyEmIp;
+    shellyObj["channel"] = config.shellyEmChannel;
+
     String jsonString;
     serializeJson(doc, jsonString);
-    request->send(200, "application/json", jsonString);
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", jsonString);
+    request->send(response);
 }
 
 void WebServerManager::handleSaveWifiSettings(AsyncWebServerRequest *request, uint8_t *data, size_t len)
@@ -45,7 +50,7 @@ void WebServerManager::handleSaveWifiSettings(AsyncWebServerRequest *request, ui
     const char *ssid = doc["ssid"] | "";
     const char *password = doc["password"] | "";
 
-    ConfigTemperature config = this->configManager.loadConfig();
+    Config config = this->configManager.loadConfig();
     config.wifiSSID = ssid;
     config.wifiPassword = password;
     this->configManager.saveConfig(config);
@@ -73,12 +78,44 @@ void WebServerManager::handleSaveMqttSettings(AsyncWebServerRequest *request, ui
     const char *mqtt_password = doc["password"] | "";
     int mqtt_port = doc["port"] | 1883;
 
-    ConfigTemperature config = this->configManager.loadConfig();
+    Config config = this->configManager.loadConfig();
     config.mqttServer = broker;
     config.mqttPort = mqtt_port;
     config.mqttPassword = mqtt_password;
     config.mqttTopic = topic;
     config.mqttUsername = mqtt_user;
+    this->configManager.saveConfig(config);
+
+    request->send(200, "application/json", "{\"status\":\"success\"}");
+}
+
+void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, uint8_t *data, size_t len)
+{
+    Serial.println(" POST: /saveSolarSettings");
+
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, data, len);
+
+    if (error)
+    {
+        Serial.println("Erreur de parsing du JSON !");
+        request->send(400, "application/json", "{\"status\":\"Invalid JSON\"}");
+        return;
+    }
+
+    const char *shellyEmIp = doc["shellyEmIp"] | "";
+    const char *shellyEmChannel = doc["shellyEmChannel"] | "";
+
+    if (strlen(shellyEmIp) == 0 || strlen(shellyEmChannel) == 0)
+    {
+        Serial.println("Erreur : shellyEmIp ou shellyEmChannel vide !");
+        request->send(400, "application/json", "{\"status\":\"Invalid Shelly EM settings\"}");
+        return;
+    }
+
+    Config config = this->configManager.loadConfig();
+    config.shellyEmIp = shellyEmIp;
+    config.shellyEmChannel = shellyEmChannel;
     this->configManager.saveConfig(config);
 
     request->send(200, "application/json", "{\"status\":\"success\"}");
@@ -145,6 +182,8 @@ void WebServerManager::setupApiRoutes()
 
     server.on("/saveMqttSettings", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
               { handleSaveMqttSettings(request, data, len); });
+    server.on("/saveSolarSettings", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
+              { handleSaveSolarSettings(request, data, len); });
 
     server.on("/getTemperature", HTTP_GET, [](AsyncWebServerRequest *request)
               {
