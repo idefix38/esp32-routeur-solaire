@@ -6,6 +6,7 @@
 #include "webserverManager.h"
 #include "sensor.h"
 #include "configManager.h"
+#include "shellyEm.h"
 
 ConfigManager configManager;
 Config config;
@@ -39,25 +40,45 @@ void setup()
 
 void loop()
 {
-    float temperature = getTemperature();
     static unsigned long lastDiscoveryTime = 0;
+    static unsigned long lastTempTime = 0;
+    static unsigned long lastShellyTime = 0;
+    static float lastTemperature = 0;
+    static float lastPower = 0;
 
-    if (config.mqttServer != "")
+    unsigned long now = millis();
+
+    // Publication du message Discovery toutes les 5 minutes
+    if (config.mqttServer != "" && now - lastDiscoveryTime > 5 * 60 * 1000)
     {
         if (!mqttManager.isConnected())
         {
             mqttManager.connect(1);
         }
-        // Republier le message discovery toutes les 5 minutes
-        // Necessaire en cas de redemarrage de home assistant
-        if (millis() - lastDiscoveryTime > 5 * 60 * 1000)
-        { // 10 minutes
-            mqttManager.sendDiscovery();
-            lastDiscoveryTime = millis();
-        }
-        mqttManager.loop();
-        mqttManager.sendTemperature(temperature);
+        mqttManager.sendDiscovery();
+        lastDiscoveryTime = now;
     }
-    sleep(10);
-    Serial.println("[-] Loop ...");
+
+    // Mesure et envoi de la température toutes les 30 secondes
+    if (now - lastTempTime > 30 * 1000)
+    {
+        lastTemperature = getTemperature();
+        if (config.mqttServer != "")
+        {
+            mqttManager.sendTemperature(lastTemperature);
+        }
+        lastTempTime = now;
+    }
+
+    // Appel au ShellyEM toutes les secondes
+    if (now - lastShellyTime > 1000)
+    {
+        ShellyEm shelly(String(config.shellyEmIp.c_str()), String(config.shellyEmChannel.c_str()));
+        lastPower = shelly.getPower();
+        Serial.print("[ShellyEM] Puissance: ");
+        Serial.println(lastPower);
+        lastShellyTime = now;
+    }
+
+    mqttManager.loop();
 }

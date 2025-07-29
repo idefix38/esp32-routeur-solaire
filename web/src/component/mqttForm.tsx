@@ -1,18 +1,13 @@
 import { Loader } from 'lucide-react';
 import { useEffect, useRef } from 'preact/hooks';
+import { mqttConfig } from '../context/configurationContext';
 
-interface MqttFormData {
-  broker: string;
-  port: number;
-  user: string;
-  password: string;
-  topic: string;
-}
+
 
 interface MqttFormProps {
-  onSubmit: (data: MqttFormData) => void;
+  onSubmit: (data: mqttConfig) => void;
   loading?: boolean;
-  initialValues?: MqttFormData | null;
+  initialValues?: mqttConfig | null;
 }
 
 export const MqttForm = ({ onSubmit, initialValues, loading }: MqttFormProps) => {
@@ -24,9 +19,9 @@ export const MqttForm = ({ onSubmit, initialValues, loading }: MqttFormProps) =>
 
   useEffect(() => {
     if (initialValues) {
-      if (brokerRef.current) brokerRef.current.value = initialValues.broker;
+      if (brokerRef.current) brokerRef.current.value = initialValues.server;
       if (portRef.current) portRef.current.value = String(initialValues.port);
-      if (userRef.current) userRef.current.value = initialValues.user;
+      if (userRef.current) userRef.current.value = initialValues.username;      
       if (passwordRef.current) passwordRef.current.value = initialValues.password;
       if (topicRef.current) topicRef.current.value = initialValues.topic;
     }
@@ -35,9 +30,9 @@ export const MqttForm = ({ onSubmit, initialValues, loading }: MqttFormProps) =>
   const handleSubmit = (e: Event) => {
     e.preventDefault();
     onSubmit({
-      broker: brokerRef.current?.value || '',
+      server: brokerRef.current?.value || '',
       port: Number(portRef.current?.value) || 1883,
-      user: userRef.current?.value || '',
+      username: userRef.current?.value || '',
       password: passwordRef.current?.value || '',
       topic: topicRef.current?.value || '',
     });

@@ -14,18 +14,21 @@ void WebServerManager::handleGetConfig(AsyncWebServerRequest *request)
     JsonDocument doc;
     JsonObject wifiObj = doc["wifi"].to<JsonObject>();
     wifiObj["ssid"] = config.wifiSSID;
-    wifiObj["password"] = config.wifiPassword;
+    wifiObj["password"] = "********";
 
     JsonObject mqttObj = doc["mqtt"].to<JsonObject>();
     mqttObj["server"] = config.mqttServer;
     mqttObj["port"] = config.mqttPort;
     mqttObj["username"] = config.mqttUsername;
-    mqttObj["password"] = config.mqttPassword;
+    mqttObj["password"] = "********";
     mqttObj["topic"] = config.mqttTopic;
 
-    JsonObject shellyObj = doc["shelly"].to<JsonObject>();
+    JsonObject shellyObj = doc["shellyEm"].to<JsonObject>();
     shellyObj["ip"] = config.shellyEmIp;
     shellyObj["channel"] = config.shellyEmChannel;
+
+    JsonObject boilerObj = doc["boiler"].to<JsonObject>();
+    boilerObj["mode"] = config.boilerMode;
 
     String jsonString;
     serializeJson(doc, jsonString);
@@ -52,7 +55,14 @@ void WebServerManager::handleSaveWifiSettings(AsyncWebServerRequest *request, ui
 
     Config config = this->configManager.loadConfig();
     config.wifiSSID = ssid;
-    config.wifiPassword = password;
+    if (password == "" || strcmp(password, "********") == 0)
+    {
+        // Ne pas modifier le mot de passe
+    }
+    else
+    {
+        config.wifiPassword = password;
+    }
     this->configManager.saveConfig(config);
 
     request->send(200, "application/json", "{\"status\":\"success\"}");
@@ -72,18 +82,26 @@ void WebServerManager::handleSaveMqttSettings(AsyncWebServerRequest *request, ui
         return;
     }
 
-    const char *broker = doc["broker"] | "";
+    const char *server = doc["server"] | "";
     const char *topic = doc["topic"] | "";
-    const char *mqtt_user = doc["user"] | "";
+    const char *mqtt_username = doc["username"] | "";
     const char *mqtt_password = doc["password"] | "";
+
     int mqtt_port = doc["port"] | 1883;
 
     Config config = this->configManager.loadConfig();
-    config.mqttServer = broker;
+    config.mqttServer = server;
     config.mqttPort = mqtt_port;
-    config.mqttPassword = mqtt_password;
     config.mqttTopic = topic;
-    config.mqttUsername = mqtt_user;
+    config.mqttUsername = mqtt_username;
+    if (mqtt_password == "" || strcmp(mqtt_password, "********") == 0)
+    {
+        // Ne pas modifier le mot de passe
+    }
+    else
+    {
+        config.mqttPassword = mqtt_password;
+    }
     this->configManager.saveConfig(config);
 
     request->send(200, "application/json", "{\"status\":\"success\"}");
@@ -103,8 +121,9 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
         return;
     }
 
-    const char *shellyEmIp = doc["shellyEmIp"] | "";
-    const char *shellyEmChannel = doc["shellyEmChannel"] | "";
+    const char *shellyEmIp = doc["ip"] | "";
+    const char *shellyEmChannel = doc["channel"] | "";
+    const char *boilerMode = doc["mode"] | "Auto";
 
     if (strlen(shellyEmIp) == 0 || strlen(shellyEmChannel) == 0)
     {
@@ -116,6 +135,7 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
     Config config = this->configManager.loadConfig();
     config.shellyEmIp = shellyEmIp;
     config.shellyEmChannel = shellyEmChannel;
+    config.boilerMode = boilerMode;
     this->configManager.saveConfig(config);
 
     request->send(200, "application/json", "{\"status\":\"success\"}");

@@ -1,15 +1,13 @@
 import { useEffect, useRef } from 'preact/hooks';
 import { Loader } from 'lucide-react';
+import { wifiConfig } from '../context/configurationContext';
 
-interface WifiFormData {
-  ssid: string;
-  password: string;
-}
+
 
 interface WifiFormProps {
-  onSubmit: (data: WifiFormData) => Promise<any>;
+  onSubmit: (data: wifiConfig) => Promise<any>;
   loading?: boolean;
-  initialValues?: WifiFormData | null;
+  initialValues?: wifiConfig;
 }
 
 export const WifiForm = ({
@@ -20,18 +18,20 @@ export const WifiForm = ({
   const ssidRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
+  // Populate the form fields with initial values if provided
   useEffect(() => {
     if (initialValues) {
-      if (ssidRef.current) ssidRef.current.value = initialValues.ssid;
+      if (ssidRef.current) ssidRef.current.value = initialValues.ssid;      
       if (passwordRef.current) passwordRef.current.value = initialValues.password;
     }
   }, [initialValues]);
 
+  // Handles the form submission for WiFi settings.
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
     const ssid = ssidRef.current?.value || '';
     const password = passwordRef.current?.value || '';
-    await onSubmit({ ssid, password });
+    await onSubmit({ password : password, ssid: ssid});
   };
 
   return (

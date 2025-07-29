@@ -16,6 +16,7 @@ struct Config
     std::string mqttTopic;       // Topic MQTT pour les données de température
     std::string shellyEmIp;      // Adresse Ip du module Shelly EM
     std::string shellyEmChannel; // Channel du module Shelly EM
+    std::string boilerMode;      // Auto, On ou Off ( Auto = Routeur Solaire, On = Chauffe eau en marche forcé , Off = Chauffe à l'arret )
 };
 
 class ConfigManager

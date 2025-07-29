@@ -26,6 +26,7 @@ bool ConfigManager::saveConfig(const Config &config)
     _preferences.putString("mqttTopic", config.mqttTopic.c_str());
     _preferences.putString("shellyEmIp", config.shellyEmIp.c_str());
     _preferences.putString("shellyEmChannel", config.shellyEmChannel.c_str());
+    _preferences.putString("boilerMode", config.boilerMode.c_str());
     _preferences.end(); // Ferme l'accès aux préférences
 
     return true; // Retourne vrai si la sauvegarde est réussie
@@ -47,6 +48,7 @@ Config ConfigManager::loadConfig()
     config.mqttTopic = _preferences.getString("mqttTopic", "").c_str();
     config.shellyEmIp = _preferences.getString("shellyEmIp", "").c_str();
     config.shellyEmChannel = _preferences.getString("shellyEmChannel", "").c_str();
+    config.boilerMode = _preferences.getString("boilerMode", "Auto").c_str();
     _preferences.end();
 
     return config; // Retourne l'objet de configuration

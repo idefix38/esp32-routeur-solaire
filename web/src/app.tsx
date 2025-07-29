@@ -3,6 +3,7 @@ import { lazy, LocationProvider, Router } from 'preact-iso';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { Toast } from './component/Toast';
 import SolarPage from './pages/solar';
+import { ConfigProvider } from './context/configurationContext';
 
 const Home = lazy(() => import('./pages/home'));
 const WifiPage = lazy(() => import('./pages/wifi'));;
@@ -16,6 +17,7 @@ export interface pagePros {
 export function App(props: any) {
   return (
     <LocationProvider>
+      <ConfigProvider>
       <ToastProvider>
         <Navbar />
         <ToastContainer />
@@ -27,6 +29,7 @@ export function App(props: any) {
           <NotFound default />
         </Router>
       </ToastProvider>
+      </ConfigProvider>
     </LocationProvider>
   );
 }
