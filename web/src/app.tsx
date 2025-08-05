@@ -2,12 +2,12 @@ import { Navbar } from './component/navBar'
 import { lazy, LocationProvider, Router } from 'preact-iso';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { Toast } from './component/Toast';
-import SolarPage from './pages/solar';
 import { ConfigProvider } from './context/configurationContext';
 
 const Home = lazy(() => import('./pages/home'));
-const WifiPage = lazy(() => import('./pages/wifi'));;
-const MqttPage  = lazy(() => import('./pages/mqtt'));;
+const WifiPage = lazy(() => import('./pages/wifi'));
+const MqttPage  = lazy(() => import('./pages/mqtt'));
+const SolarPage  = lazy(() => import('./pages/solar'));
 
 export interface pagePros {
   path : string
