@@ -34,6 +34,7 @@ export interface shellyEmConfig {
  */
 export interface boilerConfig {
     mode: string; // Auto, On ou Off  Auto = Routeur solaire , On = Marche forcée
+    power?: number; // Puissance de la charge (optionnel)
 }
 
 

@@ -29,6 +29,7 @@ void WebServerManager::handleGetConfig(AsyncWebServerRequest *request)
 
     JsonObject boilerObj = doc["boiler"].to<JsonObject>();
     boilerObj["mode"] = config.boilerMode;
+    boilerObj["power"] = config.boilerPower;
 
     String jsonString;
     serializeJson(doc, jsonString);
@@ -124,6 +125,7 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
     const char *shellyEmIp = doc["ip"] | "";
     const char *shellyEmChannel = doc["channel"] | "";
     const char *boilerMode = doc["mode"] | "Auto";
+    int boilerPower = doc["power"] | 2500;
 
     if (strlen(shellyEmIp) == 0 || strlen(shellyEmChannel) == 0)
     {
@@ -132,11 +134,16 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
         return;
     }
 
-    Config config = this->configManager.loadConfig();
-    config.shellyEmIp = shellyEmIp;
-    config.shellyEmChannel = shellyEmChannel;
-    config.boilerMode = boilerMode;
-    this->configManager.saveConfig(config);
+    Config configTmp = this->configManager.loadConfig();
+    configTmp.shellyEmIp = shellyEmIp;
+    configTmp.shellyEmChannel = shellyEmChannel;
+    configTmp.boilerMode = boilerMode;
+    configTmp.boilerPower = boilerPower;
+    this->configManager.saveConfig(configTmp);
+
+    // Met à jour la variable globale config pour prise en compte immédiate dans loop()
+    extern Config config;
+    config = configTmp;
 
     request->send(200, "application/json", "{\"status\":\"success\"}");
 }

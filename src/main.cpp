@@ -8,26 +8,50 @@
 #include "configManager.h"
 #include "shellyEm.h"
 
+#define pinLedYellow 18
+#define pinLedGreen 19
+#define pinPulseTriac 22  // Activation du triac
+#define pinZeroCross 23   // passage à zéro de la sinusoide du secteur
+#define pinTemperature 13 // Capteur température
+
+hw_timer_t *timer = NULL;
+
 ConfigManager configManager;
 Config config;
 
 WifiManager wifiManager;
-MqttManager mqttManager;
+MqttManager mqttManager = MqttManager(configManager);
 WebServerManager web = WebServerManager(configManager);
+
+#include "SolarManager.h"
+SolarManager *solarManager = nullptr; // Déclaré comme un pointeur
 
 void setup()
 {
     Serial.begin(115200);
+
+    // Pin initialisation
+    pinMode(pinLedYellow, OUTPUT);
+    pinMode(pinLedGreen, OUTPUT);
+    digitalWrite(pinLedYellow, LOW);
+    digitalWrite(pinLedGreen, LOW);
+
     // ---------------------------Read Config --------------------
-    config = configManager.loadConfig();
+    config = configManager.loadConfig(); // La configuration est chargée ici
+
+    // ---------------------------- Setup Solar Manager -----------------
+    // Initialisation après le chargement de la config
+    solarManager = new SolarManager(pinPulseTriac, pinZeroCross, config.boilerPower);
+    solarManager->begin();
+
     // ---------------------------- Setup du Wifi ---------------------
-    wifiManager.setupAccessPoint("ESP32_WROOM_TEMPERATURE");
+    wifiManager.setupAccessPoint("ESP32_WROOM_SOLAR_ROUTER");
     wifiManager.connect(config.wifiSSID.c_str(), config.wifiPassword.c_str(), 5);
     //---------------------------- SPIFFS ------------------------------
     setupSpiffs();
     //---------------------------- SERVEUR WEB ---------------------------
     web.startServer();
-    // //---------------------------- GPIO -------------------------------
+    // ---------------------------- GPIO -------------------------------
     setupSensor();
     // //----------------------------- Setup Mqtt -------------------------
     if (config.mqttServer != "")
@@ -36,6 +60,15 @@ void setup()
         mqttManager.connect(1);
         mqttManager.sendDiscovery();
     }
+
+    // Interruptions du Triac et Timer interne
+    attachInterrupt(pinZeroCross, SolarManager::onZeroCrossStatic, RISING);
+
+    // Hardware timer
+    timer = timerBegin(0, 80, true); // Clock Divider, 1 micro second Tick
+    timerAttachInterrupt(timer, &SolarManager::onTimerStatic, true);
+    timerAlarmWrite(timer, 100, true); // Interrupt every 100 Ticks or microsecond
+    timerAlarmEnable(timer);
 }
 
 void loop()
@@ -45,6 +78,7 @@ void loop()
     static unsigned long lastShellyTime = 0;
     static float lastTemperature = 0;
     static float lastPower = 0;
+    static float regulatedPower = 0;
 
     unsigned long now = millis();
 
@@ -59,25 +93,34 @@ void loop()
         lastDiscoveryTime = now;
     }
 
-    // Mesure et envoi de la température toutes les 30 secondes
-    if (now - lastTempTime > 30 * 1000)
+    // Mesure et envoi des données toutes les 5 secondes
+    if (now - lastTempTime > 5 * 1000)
     {
         lastTemperature = getTemperature();
         if (config.mqttServer != "")
         {
-            mqttManager.sendTemperature(lastTemperature);
+            mqttManager.sendData(lastTemperature, regulatedPower);
         }
         lastTempTime = now;
     }
 
     // Appel au ShellyEM toutes les secondes
-    if (now - lastShellyTime > 1000)
+    if (config.boilerMode == "auto" && (now - lastShellyTime) > 1000)
     {
         ShellyEm shelly(String(config.shellyEmIp.c_str()), String(config.shellyEmChannel.c_str()));
         lastPower = shelly.getPower();
         Serial.print("[ShellyEM] Puissance: ");
         Serial.println(lastPower);
+        regulatedPower = solarManager->RegulationProduction(lastPower);
         lastShellyTime = now;
+    }
+    if (config.boilerMode == "on")
+    {
+        solarManager->On();
+    }
+    if (config.boilerMode == "off")
+    {
+        solarManager->Off();
     }
 
     mqttManager.loop();

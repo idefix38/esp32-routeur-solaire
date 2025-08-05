@@ -21,6 +21,7 @@ function SolarForm({ onSubmit, loading, boilerSettings, shellyEmSettings }: sola
   const modeAutoRef = useRef<HTMLInputElement>(null);
   const modeOnRef = useRef<HTMLInputElement>(null);
   const modeOffRef = useRef<HTMLInputElement>(null);
+  const powerRef = useRef<HTMLInputElement>(null);
   //const [mode, setMode] = useState(boilerSettings?.mode || 'Auto');
 
   // Populate the form fields with initial values if provided
@@ -33,6 +34,7 @@ function SolarForm({ onSubmit, loading, boilerSettings, shellyEmSettings }: sola
       if (modeAutoRef.current) modeAutoRef.current.checked = boilerSettings.mode === 'Auto';
       else if (modeOnRef.current) modeOnRef.current.checked = boilerSettings.mode === 'On';
       else if (modeOffRef.current) modeOffRef.current.checked = boilerSettings.mode === 'Off';
+      if (powerRef.current) powerRef.current.value = boilerSettings.power?.toString() || '2500';
     }
   }, [boilerSettings, shellyEmSettings]);
 
@@ -45,6 +47,7 @@ function SolarForm({ onSubmit, loading, boilerSettings, shellyEmSettings }: sola
     }
     const dataBoiler : boilerConfig = {
       mode : modeAutoRef.current?.checked ? 'Auto' : modeOnRef.current?.checked ? 'On' : 'Off',
+      power: parseInt(powerRef.current?.value || '2500')
     }    
     onSubmit(dataBoiler, dataShelly);
   };
@@ -90,41 +93,53 @@ function SolarForm({ onSubmit, loading, boilerSettings, shellyEmSettings }: sola
       </div>
       {/* // Mode */}
       <div>
-  <span className="block text-sm font-medium text-gray-700 mb-1">Mode</span>
-  <label className="inline-flex items-center mr-4">
-    <input
-      type="radio"
-      name="mode"
-      value="Auto"
-      ref={modeAutoRef}
-      className="form-radio text-indigo-600"
-      defaultChecked={boilerSettings?.mode === 'Auto'}      
-    />
-    <span className="ml-2">Auto (Routeur Solaire)</span>
-  </label>
-  <label className="inline-flex items-center mr-4">
-    <input
-      type="radio"
-      name="mode"
-      value="On"
-      ref={modeOnRef}
-      className="form-radio text-indigo-600"
-      defaultChecked={boilerSettings?.mode === 'On'}      
-    />
-    <span className="ml-2">On (Marche forcé)</span>
-  </label>
-  <label className="inline-flex items-center">
-    <input
-      type="radio"
-      name="mode"
-      value="Off"
-      ref={modeOffRef}
-      className="form-radio text-indigo-600"
-      defaultChecked={boilerSettings?.mode === 'Off'}      
-    />
-    <span className="ml-2">Off</span>
-  </label>
-</div>
+        <span className="block text-sm font-medium text-gray-700 mb-1">Mode</span>
+        <label className="inline-flex items-center mr-4">
+          <input
+            type="radio"
+            name="mode"
+            value="Auto"
+            ref={modeAutoRef}
+            className="form-radio text-indigo-600"
+            defaultChecked={boilerSettings?.mode === 'Auto'}      
+          />
+          <span className="ml-2">Auto (Routeur Solaire)</span>
+        </label>
+        <label className="inline-flex items-center mr-4">
+          <input
+            type="radio"
+            name="mode"
+            value="On"
+            ref={modeOnRef}
+            className="form-radio text-indigo-600"
+            defaultChecked={boilerSettings?.mode === 'On'}      
+          />
+          <span className="ml-2">On (Marche forcé)</span>
+        </label>
+        <label className="inline-flex items-center">
+          <input
+            type="radio"
+            name="mode"
+            value="Off"
+            ref={modeOffRef}
+            className="form-radio text-indigo-600"
+            defaultChecked={boilerSettings?.mode === 'Off'}      
+          />
+          <span className="ml-2">Off (Stop forcé)</span>
+        </label>
+      </div>
+      <div>
+        <label htmlFor="boilerPower" className="block text-sm font-medium text-gray-700">Puissance du chauffe-eau (W)</label>
+        <input
+          id="boilerPower"
+          name="boilerPower"
+          type="number"
+          ref={powerRef}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-lg px-4 py-3"
+          placeholder="2500"
+          required
+        />
+      </div>
       <button
         type="submit"
         className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"

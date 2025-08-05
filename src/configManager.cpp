@@ -27,18 +27,19 @@ bool ConfigManager::saveConfig(const Config &config)
     _preferences.putString("shellyEmIp", config.shellyEmIp.c_str());
     _preferences.putString("shellyEmChannel", config.shellyEmChannel.c_str());
     _preferences.putString("boilerMode", config.boilerMode.c_str());
+    _preferences.putInt("boilerPower", config.boilerPower);
     _preferences.end(); // Ferme l'accès aux préférences
 
     return true; // Retourne vrai si la sauvegarde est réussie
 }
 
-// Charge la configuration depuis la mémoire flash et retourne un objet ConfigTemperature
+// Charge la configuration depuis la mémoire flash et retourne un objet Config
 Config ConfigManager::loadConfig()
 {
     Config config;
 
     Serial.println("[-] Lecture de la mémoire flash ...");
-    _preferences.begin("config", false); // "config" est l'espace de noms pour stocker les configurations
+    _preferences.begin("config", true); // "config" est l'espace de noms pour stocker les configurations, en lecture seule
     config.wifiSSID = _preferences.getString("wifiSSID", "").c_str();
     config.wifiPassword = _preferences.getString("wifiPassword", "").c_str();
     config.mqttServer = _preferences.getString("mqttServer", "").c_str();
@@ -49,6 +50,7 @@ Config ConfigManager::loadConfig()
     config.shellyEmIp = _preferences.getString("shellyEmIp", "").c_str();
     config.shellyEmChannel = _preferences.getString("shellyEmChannel", "").c_str();
     config.boilerMode = _preferences.getString("boilerMode", "Auto").c_str();
+    config.boilerPower = _preferences.getInt("boilerPower", 2500);
     _preferences.end();
 
     return config; // Retourne l'objet de configuration
@@ -57,5 +59,7 @@ Config ConfigManager::loadConfig()
 // Efface la configuration de la mémoire flash
 void ConfigManager::clearConfig()
 {
-    _preferences.clear(); // Supprime toutes les clés de l'espace de noms "network"
+    _preferences.begin("config", false);
+    _preferences.clear(); // Supprime toutes les clés de l'espace de noms "config"
+    _preferences.end();
 }

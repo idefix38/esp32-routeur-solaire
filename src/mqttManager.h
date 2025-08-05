@@ -4,23 +4,27 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
+#include "configManager.h"
 
 class MqttManager
 {
 public:
     // Constructeur avec WiFiClient en paramètre
-    MqttManager();
+    MqttManager(ConfigManager &configManager);
 
     void setup(const char *server, int port, const char *username, const char *password, const char *topic);
     // Méthodes de connexion et d'envoi
     void connect(int timeout = 5);
-    void sendTemperature(float temperature);
+    void sendData(float temperature, float power);
     // Méthode pour que homeAssistant découvre l'ESP32
     void sendDiscovery();
 
     // Fonction de mise à jour pour maintenir la connexion MQTT
     void loop();
     bool isConnected();
+
+    // Ajout du getter pour boilerMode
+    String getBoilerMode() const { return boilerMode; }
 
 private:
     // Variables de configuration WiFi et MQTT
@@ -32,6 +36,15 @@ private:
     // Référence vers un client WiFi et un objet client MQTT
     WiFiClient espClient;
     PubSubClient client;
+    ConfigManager &configManager;
+
+    // Mode du chauffe-eau
+    String boilerMode;
+
+    // Callback pour la réception de messages MQTT
+    void onMqttMessage(char *topic, byte *payload, unsigned int length);
+    // Publication de l'état du mode du chauffe-eau
+    void publishBoilerMode();
 };
 
 #endif

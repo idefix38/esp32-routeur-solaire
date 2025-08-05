@@ -16,20 +16,6 @@ export default function SolarPage(props: pagePros) {
   const { callApi, loading } = useEsp32Api();
   const config = useConfig();
   
-  // // Fetch the current config
-  // useEffect(() => {
-  //   (async () => {
-  //     const result = await callApi('/getConfig');
-     
-  //     if (result.success && result.data?.shelly) {
-  //       setInitialValues({
-  //         shellyEmIp: result.data.shelly.ip || '',
-  //         shellyEmChannel: result.data.shelly.channel || '1',
-  //         boilerMode : result.data.boiler.boilerMode || 'auto'
-  //       });
-  //     }
-  //   })();
-  // }, []);
 
   // Handles the form submission for Solar settings.
   const handleSolarSubmit = async (boilerSettings?: boilerConfig, shellyEmSettings?: shellyEmConfig) => {

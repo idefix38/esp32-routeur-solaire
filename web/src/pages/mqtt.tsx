@@ -18,21 +18,6 @@ export default function MqttPage(props: pagePros) {
   const config = useConfig();
   
 
-  // useEffect(() => {
-  //   (async () => {
-  //     const result = await callApi('/getConfig');
-  //     if (result.success && result.data?.mqtt) {
-  //       setInitialValues({
-  //         broker: result.data.mqtt.server || '',
-  //         port: result.data.mqtt.port || 1883,
-  //         user: result.data.mqtt.username || '',
-  //         password: result.data.mqtt.password || '',
-  //         topic: result.data.mqtt.topic || ''
-  //       });
-  //     }
-  //   })();
-  // }, []);
-
   /**
    * Handles the form submission for MQTT settings.
    * @param data - The form data containing broker, user, password, topic, and port.
