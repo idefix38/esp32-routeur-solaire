@@ -22,9 +22,11 @@ public:
     // Fonction de mise à jour pour maintenir la connexion MQTT
     void loop();
     bool isConnected();
+    // Publication de l'état du mode du chauffe-eau
+    void publishBoilerMode(String boilerMode);
 
     // Ajout du getter pour boilerMode
-    String getBoilerMode() const { return boilerMode; }
+    // String getBoilerMode() const { return boilerMode; }
 
 private:
     // Variables de configuration WiFi et MQTT
@@ -39,12 +41,10 @@ private:
     ConfigManager &configManager;
 
     // Mode du chauffe-eau
-    String boilerMode;
+    // String boilerMode;
 
     // Callback pour la réception de messages MQTT
     void onMqttMessage(char *topic, byte *payload, unsigned int length);
-    // Publication de l'état du mode du chauffe-eau
-    void publishBoilerMode();
 };
 
 #endif

@@ -5,7 +5,7 @@
 // Le mode du chauffe-eau est maintenant un membre de la classe MqttManager
 
 // Constructeur de la classe
-MqttManager::MqttManager(ConfigManager &configManager) : configManager(configManager), client(espClient), boilerMode("auto")
+MqttManager::MqttManager(ConfigManager &configManager) : configManager(configManager), client(espClient)
 {
     // Le callback sera défini dans setup() (quand 'this' est bien initialisé)
 }
@@ -77,14 +77,19 @@ void MqttManager::onMqttMessage(char *topic, byte *payload, unsigned int length)
         modePayload.trim();
         if (modePayload == "auto" || modePayload == "on" || modePayload == "off")
         {
-            this->boilerMode = modePayload;
-            Config config = this->configManager.loadConfig();
-            config.boilerMode = this->boilerMode.c_str();
-            this->configManager.saveConfig(config);
+
+            Config configTmp = this->configManager.loadConfig();
+            configTmp.boilerMode = modePayload.c_str();
+            this->configManager.saveConfig(configTmp);
+
+            // Met à jour la variable globale config pour prise en compte immédiate dans loop()
+            extern Config config;
+            config = configTmp;
+
             Serial.print("[MQTT] Mode chauffe-eau mis à jour : ");
-            Serial.println(this->boilerMode);
+            Serial.println(modePayload);
             // Publier le nouvel état sur le topic state
-            this->publishBoilerMode();
+            this->publishBoilerMode(modePayload);
         }
         else
         {
@@ -95,10 +100,19 @@ void MqttManager::onMqttMessage(char *topic, byte *payload, unsigned int length)
 }
 
 // Publier l'état du mode du chauffe-eau
-void MqttManager::publishBoilerMode()
+void MqttManager::publishBoilerMode(String mode)
 {
-    String stateTopic = String(this->topic.c_str()) + "/boiler/mode/state";
-    client.publish(stateTopic.c_str(), boilerMode.c_str(), true);
+    if (mode != nullptr)
+    {
+        // Publie l'état du mode du chauffe-eau sur le topic approprié
+        Serial.print("[MQTT] Publication de l'état du mode du chauffe-eau : ");
+        Serial.println(mode);
+
+        // Le topic pour l'état du mode du chauffe-eau
+
+        String stateTopic = String(this->topic.c_str()) + "/boiler/mode/state";
+        client.publish(stateTopic.c_str(), mode.c_str(), true);
+    }
 }
 
 // Méthode pour maintenir la connexion MQTT
@@ -167,7 +181,7 @@ void MqttManager::sendDiscovery()
     }
 
     // Découverte du switch pour le mode du chauffe-eau
-    String switchConfigTopic = "homeassistant/select/boiler_mode/config";
+    String switchConfigTopic = "homeassistant/select/boiler/mode/config";
     JsonDocument docSwitch;
     docSwitch["name"] = "Mode du Chauffe eau";
     docSwitch["command_topic"] = topic + "/boiler/mode/set";
@@ -206,6 +220,11 @@ void MqttManager::sendData(float temperature, float power)
     serializeJson(doc, payload);
 
     String stateTopic = String(topic.c_str()) + "/state";
+
+    // Log pour le débogage
+    Serial.print("[MQTT] Payload: ");
+    Serial.println(payload);
+
     if (!client.publish(stateTopic.c_str(), payload.c_str()))
     {
         Serial.println("    - Échec de l'envoi des données MQTT.");

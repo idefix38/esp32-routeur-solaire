@@ -6,13 +6,14 @@
 #include <ArduinoJson.h>
 #include "sensor.h"
 #include "ConfigManager.h"
+#include "mqttManager.h"
 
 using namespace ArduinoJson;
 
 class WebServerManager
 {
 public:
-    WebServerManager(ConfigManager &configManager); // Removed explicit since it's a non-const reference
+    WebServerManager(ConfigManager &configManager, MqttManager &mqttManager);
     void setupLocalWeb();
     void setupApiRoutes();
     void startServer();
@@ -26,6 +27,7 @@ private:
     String getContentType(String filename);
 
     ConfigManager &configManager;
+    MqttManager &mqttManager;
     AsyncWebServer server;
 };
 

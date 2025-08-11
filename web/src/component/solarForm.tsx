@@ -30,10 +30,10 @@ function SolarForm({ onSubmit, loading, boilerSettings, shellyEmSettings }: sola
     if (boilerSettings && shellyEmSettings) {      
       if (ipRef.current) ipRef.current.value = shellyEmSettings.ip || '';
       if (channel1Ref.current) channel1Ref.current.checked = shellyEmSettings.channel === '1';
-      if (channel2Ref.current) channel2Ref.current.checked = shellyEmSettings.channel === '2';      
-      if (modeAutoRef.current) modeAutoRef.current.checked = boilerSettings.mode === 'Auto';
-      else if (modeOnRef.current) modeOnRef.current.checked = boilerSettings.mode === 'On';
-      else if (modeOffRef.current) modeOffRef.current.checked = boilerSettings.mode === 'Off';
+      if (channel2Ref.current) channel2Ref.current.checked = shellyEmSettings.channel === '2';
+      if (modeAutoRef.current) modeAutoRef.current.checked = boilerSettings.mode.toLowerCase() === 'auto';
+      else if (modeOnRef.current) modeOnRef.current.checked = boilerSettings.mode.toLowerCase() === 'on';
+      else if (modeOffRef.current) modeOffRef.current.checked = boilerSettings.mode.toLowerCase() === 'off';
       if (powerRef.current) powerRef.current.value = boilerSettings.power?.toString() || '2500';
     }
   }, [boilerSettings, shellyEmSettings]);
@@ -46,7 +46,7 @@ function SolarForm({ onSubmit, loading, boilerSettings, shellyEmSettings }: sola
       channel : channel1Ref.current?.checked ? '1' : '2',      
     }
     const dataBoiler : boilerConfig = {
-      mode : modeAutoRef.current?.checked ? 'Auto' : modeOnRef.current?.checked ? 'On' : 'Off',
+      mode : modeAutoRef.current?.checked ? 'auto' : modeOnRef.current?.checked ? 'on' : 'off',
       power: parseInt(powerRef.current?.value || '2500')
     }    
     onSubmit(dataBoiler, dataShelly);
@@ -98,10 +98,10 @@ function SolarForm({ onSubmit, loading, boilerSettings, shellyEmSettings }: sola
           <input
             type="radio"
             name="mode"
-            value="Auto"
+            value="auto"
             ref={modeAutoRef}
             className="form-radio text-indigo-600"
-            defaultChecked={boilerSettings?.mode === 'Auto'}      
+            defaultChecked={boilerSettings?.mode === 'auto'}      
           />
           <span className="ml-2">Auto (Routeur Solaire)</span>
         </label>
@@ -109,10 +109,10 @@ function SolarForm({ onSubmit, loading, boilerSettings, shellyEmSettings }: sola
           <input
             type="radio"
             name="mode"
-            value="On"
+            value="on"
             ref={modeOnRef}
             className="form-radio text-indigo-600"
-            defaultChecked={boilerSettings?.mode === 'On'}      
+            defaultChecked={boilerSettings?.mode === 'on'}      
           />
           <span className="ml-2">On (Marche forcé)</span>
         </label>
@@ -120,10 +120,10 @@ function SolarForm({ onSubmit, loading, boilerSettings, shellyEmSettings }: sola
           <input
             type="radio"
             name="mode"
-            value="Off"
+            value="off"
             ref={modeOffRef}
             className="form-radio text-indigo-600"
-            defaultChecked={boilerSettings?.mode === 'Off'}      
+            defaultChecked={boilerSettings?.mode === 'off'}      
           />
           <span className="ml-2">Off (Stop forcé)</span>
         </label>

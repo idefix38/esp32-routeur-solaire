@@ -21,7 +21,8 @@ Config config;
 
 WifiManager wifiManager;
 MqttManager mqttManager = MqttManager(configManager);
-WebServerManager web = WebServerManager(configManager);
+WebServerManager web = WebServerManager(configManager, mqttManager);
+ShellyEm *shelly = nullptr; // Pointeur pour l'objet ShellyEm
 
 #include "SolarManager.h"
 SolarManager *solarManager = nullptr; // Déclaré comme un pointeur
@@ -38,6 +39,32 @@ void setup()
 
     // ---------------------------Read Config --------------------
     config = configManager.loadConfig(); // La configuration est chargée ici
+
+    // --- Log config as JSON ---
+    JsonDocument doc;
+    doc["wifiSSID"] = config.wifiSSID;
+    // doc["wifiPassword"] = config.wifiPassword; // For security, don't log password
+    doc["mqttServer"] = config.mqttServer;
+    doc["mqttPort"] = config.mqttPort;
+    doc["mqttUsername"] = config.mqttUsername;
+    // doc["mqttPassword"] = config.mqttPassword; // For security, don't log password
+    doc["mqttTopic"] = config.mqttTopic;
+    doc["shellyEmIp"] = config.shellyEmIp;
+    doc["shellyEmChannel"] = config.shellyEmChannel;
+    doc["boilerMode"] = config.boilerMode;
+    doc["boilerPower"] = config.boilerPower;
+    String jsonConfig;
+    serializeJsonPretty(doc, jsonConfig);
+    Serial.println("--------- Configuration chargée ---------");
+    Serial.println(jsonConfig);
+    Serial.println("------------------------------------");
+
+    // ---------------------------- Setup Shelly ----------------------
+    // Initialisation de Shelly après le chargement de la config
+    if (config.shellyEmIp != "")
+    {
+        shelly = new ShellyEm(String(config.shellyEmIp.c_str()), String(config.shellyEmChannel.c_str()));
+    }
 
     // ---------------------------- Setup Solar Manager -----------------
     // Initialisation après le chargement de la config
@@ -99,28 +126,38 @@ void loop()
         lastTemperature = getTemperature();
         if (config.mqttServer != "")
         {
+            // CORRECTION : On vérifie la connexion avant d'envoyer
+            if (!mqttManager.isConnected())
+            {
+                mqttManager.connect(1);
+            }
             mqttManager.sendData(lastTemperature, regulatedPower);
         }
         lastTempTime = now;
     }
 
     // Appel au ShellyEM toutes les secondes
-    if (config.boilerMode == "auto" && (now - lastShellyTime) > 1000)
+    if ((config.boilerMode == "Auto" || config.boilerMode == "auto") && (now - lastShellyTime) > 1000)
     {
-        ShellyEm shelly(String(config.shellyEmIp.c_str()), String(config.shellyEmChannel.c_str()));
-        lastPower = shelly.getPower();
-        Serial.print("[ShellyEM] Puissance: ");
-        Serial.println(lastPower);
-        regulatedPower = solarManager->RegulationProduction(lastPower);
+        // AMÉLIORATION : On utilise l'objet global et on vérifie qu'il existe
+        if (shelly != nullptr)
+        {
+            lastPower = shelly->getPower();
+            Serial.print("[ShellyEM] Puissance: ");
+            Serial.println(lastPower);
+            regulatedPower = solarManager->RegulationProduction(lastPower);
+        }
         lastShellyTime = now;
     }
-    if (config.boilerMode == "on")
+    if (config.boilerMode == "On" || config.boilerMode == "on")
     {
         solarManager->On();
+        regulatedPower = config.boilerPower; // Utilise la puissance du chauffe-eau
     }
-    if (config.boilerMode == "off")
+    if (config.boilerMode == "Off" || config.boilerMode == "off")
     {
         solarManager->Off();
+        regulatedPower = 0; // Pas de puissance
     }
 
     mqttManager.loop();

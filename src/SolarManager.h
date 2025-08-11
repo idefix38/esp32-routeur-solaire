@@ -21,9 +21,6 @@ public:
     static void IRAM_ATTR onZeroCrossStatic();
     static SolarManager *instance;
 
-    // Constante : durée cible pour que le triac équilibre production et charge
-    static constexpr unsigned long regulationDuration = 10000; // 10 secondes par exemple
-
 private:
     uint8_t _pinTriac;
     uint8_t _pinZeroCross;

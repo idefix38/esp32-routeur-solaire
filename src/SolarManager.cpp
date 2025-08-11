@@ -63,7 +63,11 @@ void SolarManager::handleZeroCross()
 float SolarManager::RegulationProduction(float power)
 {
     lastPower = power; // Mémorise la dernière puissance mesurée
-    int ecart = int(power / loadPower) * 100;
+
+    // La valeur '10' peut être ajustée pour affiner la régulation.
+    int ecart = int(power * 10 / loadPower);
+
+    int old_retard = retard;
     retard = retard + ecart;
 
     if (retard < 0)
@@ -71,7 +75,9 @@ float SolarManager::RegulationProduction(float power)
     if (retard > 100)
         retard = 100;
 
-    return (retard / 100) * loadPower;
+    float regulatedPower = ((100.0f - retard) / 100.0f) * loadPower;
+
+    return regulatedPower;
 }
 
 /**

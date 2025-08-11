@@ -1,8 +1,9 @@
 #include "WebServerManager.h"
+#include "mqttManager.h"
 
 // Constructeur
-WebServerManager::WebServerManager(ConfigManager &configManager)
-    : configManager(configManager), server(80)
+WebServerManager::WebServerManager(ConfigManager &configManager, MqttManager &mqttManager)
+    : configManager(configManager), mqttManager(mqttManager), server(80)
 {
 }
 
@@ -144,6 +145,8 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
     // Met à jour la variable globale config pour prise en compte immédiate dans loop()
     extern Config config;
     config = configTmp;
+    // Met à jour le mode du chauffe-eau dans le gestionnaire MQTT
+    this->mqttManager.publishBoilerMode(boilerMode);
 
     request->send(200, "application/json", "{\"status\":\"success\"}");
 }
