@@ -6,7 +6,7 @@
 class SolarManager
 {
 public:
-    SolarManager(uint8_t pinTriac, uint8_t _pinZeroCross, int boilerPower = 2500);
+    SolarManager(uint8_t pinTriac, uint8_t _pinZeroCross);
     void begin();
     float RegulationProduction(float Power);
     void On();
@@ -24,8 +24,9 @@ public:
 private:
     uint8_t _pinTriac;
     uint8_t _pinZeroCross;
-    float lastPower; // Dernière puissance mesurée
-    int loadPower;   // Puissance de la charge
+    float lastPower;        // Dernière puissance mesurée
+    float avgPowerPerPoint; // Ecart moyen de puissance par pourcentage d'ouverture du triac
+
     volatile unsigned long lastZeroCross;
     void handleTimer();
     void handleZeroCross();

@@ -215,10 +215,11 @@ void WebServerManager::setupApiRoutes()
     server.on("/saveSolarSettings", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
               { handleSaveSolarSettings(request, data, len); });
 
-    server.on("/getTemperature", HTTP_GET, [](AsyncWebServerRequest *request)
+    server.on("/getData", HTTP_GET, [](AsyncWebServerRequest *request)
               {
-                      float temperature = getTemperature();
-                      request->send(200, "application/json", "{\"temperature\":\"" + String(temperature) + "\"}"); });
+                      extern volatile float lastTemperature;
+                      extern volatile float regulatedPower;
+                      request->send(200, "application/json", "{\"temperature\":\"" + String(lastTemperature) + "\", \"regulatedPower\":\"" + String(regulatedPower) + "\"}"); });
 
     server.on("/getConfig", HTTP_GET, [this](AsyncWebServerRequest *request)
               { handleGetConfig(request); });

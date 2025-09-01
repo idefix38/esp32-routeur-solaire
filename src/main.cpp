@@ -15,7 +15,7 @@
 #define pinLedGreen 19
 #define pinPulseTriac 22
 #define pinZeroCross 23
-#define pinTemperature 13
+#define pinTemperature 4
 
 // Task Handles
 TaskHandle_t CommunicationTaskHandle;
@@ -70,7 +70,7 @@ void signalProcessingTask(void *pvParameters)
         else if (mode == "On" || mode == "on")
         {
             solarManager->On();
-            regulatedPower = boilerPower;
+            regulatedPower = 0;
         }
         else if (mode == "Off" || mode == "off")
         {
@@ -181,7 +181,7 @@ void setup()
     }
 
     // Setup Solar Manager
-    solarManager = new SolarManager(pinPulseTriac, pinZeroCross, config.boilerPower);
+    solarManager = new SolarManager(pinPulseTriac, pinZeroCross);
     solarManager->begin();
 
     // Setup MQTT
@@ -192,7 +192,7 @@ void setup()
 
     // Interrupts (should be safe, they are short)
     attachInterrupt(digitalPinToInterrupt(pinZeroCross), SolarManager::onZeroCrossStatic, RISING);
-    
+
     hw_timer_t *timer = timerBegin(0, 80, true);
     timerAttachInterrupt(timer, &SolarManager::onTimerStatic, true);
     timerAlarmWrite(timer, 100, true);
@@ -200,13 +200,13 @@ void setup()
 
     // Create tasks
     xTaskCreatePinnedToCore(
-        signalProcessingTask,      // Task function
-        "SignalProcessingTask",    // Name of the task
-        10000,                     // Stack size of task
-        NULL,                      // Parameter of the task
-        1,                         // Priority of the task
+        signalProcessingTask,        // Task function
+        "SignalProcessingTask",      // Name of the task
+        10000,                       // Stack size of task
+        NULL,                        // Parameter of the task
+        1,                           // Priority of the task
         &SignalProcessingTaskHandle, // Task handle to keep track of created task
-        0);                        // Pin task to core 0
+        0);                          // Pin task to core 0
 
     xTaskCreatePinnedToCore(
         communicationTask,        // Task function

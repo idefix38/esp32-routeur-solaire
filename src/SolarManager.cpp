@@ -2,8 +2,8 @@
 
 SolarManager *SolarManager::instance = nullptr;
 
-SolarManager::SolarManager(uint8_t _pinTriac, uint8_t _pinZeroCross, int loadPower)
-    : _pinTriac(_pinTriac), _pinZeroCross(_pinZeroCross), delayTriac(0), retard(100), loadPower(loadPower)
+SolarManager::SolarManager(uint8_t _pinTriac, uint8_t _pinZeroCross)
+    : _pinTriac(_pinTriac), _pinZeroCross(_pinZeroCross), delayTriac(0), retard(100), avgPowerPerPoint(0)
 {
     instance = this;
 }
@@ -58,24 +58,45 @@ void SolarManager::handleZeroCross()
 }
 
 /**
- * Régulation du Triac selon la puissance mesurée, retourne la puissance régulée
+ * Régulation du Triac selon la puissance mesurée, retourne le pourcentage d'ouverture du triac
  */
 float SolarManager::RegulationProduction(float power)
 {
     lastPower = power; // Mémorise la dernière puissance mesurée
 
     // La valeur '10' peut être ajustée pour affiner la régulation.
-    int ecart = int(power * 10 / loadPower);
+    int ecart = int(power * 100 / 2000);
 
-    int old_retard = retard;
-    retard = retard + ecart;
+    if (ecart != 0 && ecart < 98)
+    {
+        float powerPerPoint = power / ecart;
+        // Calcul de la moyenne mobile (puissance / % d'ouverture)
+        const float alpha = 0.05; // Facteur de lissage = 5%
+        avgPowerPerPoint = alpha * powerPerPoint + (1.0f - alpha) * avgPowerPerPoint;
+    }
+
+    if (abs(power) < avgPowerPerPoint && power < 0)
+    {
+        // Si la puissance mesurée est inférieure à la puissance moyenne par point
+        // On ne change pas le retard  = stabilisation avec une légère suproduction
+    }
+    else if (abs(power) < avgPowerPerPoint && power > 0)
+    {
+        // Légère surconsommation  on augmente le retard de 1 pour diminuer la puissance
+        retard = retard + 1;
+    }
+    else
+    {
+        // Ajustement du retard
+        retard = retard + ecart;
+    }
 
     if (retard < 0)
         retard = 0;
     if (retard > 100)
         retard = 100;
 
-    float regulatedPower = ((100.0f - retard) / 100.0f) * loadPower;
+    float regulatedPower = (100.0f - retard) * avgPowerPerPoint;
 
     return regulatedPower;
 }
