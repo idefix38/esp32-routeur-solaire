@@ -9,6 +9,7 @@
 #include "SolarManager.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <time.h>
 
 // Pin Definitions
 #define pinLedYellow 18
@@ -73,6 +74,15 @@ void signalProcessingTask(void *pvParameters)
                 }
                 lastShellyTime = now;
             }
+
+            // struct tm timeinfo;
+            // if (getLocalTime(&timeinfo))
+            // {
+            //     char timeStr[50]; // Increased buffer size
+            //     strftime(timeStr, sizeof(timeStr), "%A, %B %d %Y %H:%M:%S", &timeinfo);
+            //     Serial.print("    - Date/Heure: ");
+            //     Serial.println(timeStr);
+            // }
         }
         else if (mode == "On" || mode == "on")
         {
@@ -193,6 +203,48 @@ void setup()
     // Setup Solar Manager
     solarManager = new SolarManager(pinPulseTriac, pinZeroCross);
     solarManager->begin();
+
+    // Synchronize time with NTP server for Paris timezone
+    Serial.println("[-] Synchronisation Date/Heure NTP server time.google.com");
+    configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", "time.google.com");
+    const float latitude = 48.8575;
+    const float longitude = 2.3514;
+    const int lyon_utc_offset = 1;
+
+    // Récupère la date et l'heure locale
+    struct tm timeinfo_local;
+    if (getLocalTime(&timeinfo_local))
+    {
+        char timeStr[50];
+        strftime(timeStr, sizeof(timeStr), "%A, %B %d %Y %H:%M:%S", &timeinfo_local);
+        Serial.print("    - Date/Heure locale: ");
+        Serial.println(timeStr);
+
+        // Définir les paramètres pour le calcul astronomique
+        // getLocalTime renvoie déjà l'heure avec le décalage UTC et l'heure d'été
+        // Les fonctions calculateSunrise/Sunset ont besoin du décalage initial pour le calcul
+        const bool is_daylight_saving_lyon = timeinfo_local.tm_isdst;
+
+        // On utilise l'heure locale pour obtenir la date, mais on la remet à minuit pour le calcul
+        struct tm today_local = timeinfo_local;
+        today_local.tm_hour = 0;
+        today_local.tm_min = 0;
+        today_local.tm_sec = 0;
+
+        // Appel des fonctions de calcul
+        tm *sunrise = SolarManager::calculateSunrise(latitude, longitude, lyon_utc_offset, is_daylight_saving_lyon, today_local);
+        strftime(timeStr, sizeof(timeStr), "%H:%M:%S", sunrise);
+        Serial.print("    - Lever du soleil: ");
+        Serial.println(timeStr);
+
+        tm *sunset = SolarManager::calculateSunset(latitude, longitude, lyon_utc_offset, is_daylight_saving_lyon, today_local);
+        strftime(timeStr, sizeof(timeStr), "%H:%M:%S", sunset);
+        Serial.print("    - Coucher du soleil: ");
+        Serial.println(timeStr);
+
+        delete sunrise;
+        delete sunset;
+    }
 
     // Setup MQTT
     if (config.mqttServer != "")

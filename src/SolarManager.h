@@ -2,6 +2,7 @@
 #define SOLARMANAGER_H
 
 #include <Arduino.h>
+#include <math.h>
 
 class SolarManager
 {
@@ -11,6 +12,15 @@ public:
     float updateRegulation(float power);
     void On();
     void Off();
+    /**
+     * Fonction pour calculer l'heure de lever du soleil et la retourner sous forme de tm*
+     * */
+    static tm *calculateSunrise(float latitude, float longitude, int utcOffset, bool isDaylightSaving, struct tm timeinfo);
+
+    /**
+     * Fonction pour calculer l'heure de coucher du soleil
+     */
+    static tm *calculateSunset(float latitude, float longitude, int utcOffset, bool isDaylightSaving, struct tm timeinfo);
 
     // Accès aux variables utiles
     volatile int delayTriac;
@@ -19,6 +29,7 @@ public:
     // Wrappers statiques pour interruptions
     static void IRAM_ATTR onTimerStatic();
     static void IRAM_ATTR onZeroCrossStatic();
+
     static SolarManager *instance;
 
 private:
@@ -30,6 +41,9 @@ private:
     volatile unsigned long lastZeroCross;
     void handleTimer();
     void handleZeroCross();
+    static int dayOfYear(int day, int month, int year);
+    static float convertDegToRad(float angle);
+    static float convertRadToDeg(float angle);
 };
 
 #endif

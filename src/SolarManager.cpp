@@ -1,4 +1,5 @@
 #include "SolarManager.h"
+#include "Arduino.h"
 
 SolarManager *SolarManager::instance = nullptr;
 
@@ -117,4 +118,104 @@ void SolarManager::Off()
 {
     powerDelay = 100;
     digitalWrite(_pinTriac, LOW);
+}
+
+/**
+ *  Fonction utilitaire pour calculer le jour de l'année
+ **/
+int SolarManager::dayOfYear(int day, int month, int year)
+{
+    int daysInMonth[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0))
+    {
+        daysInMonth[2] = 29;
+    }
+    int doy = 0;
+    for (int i = 1; i < month; ++i)
+    {
+        doy += daysInMonth[i];
+    }
+    doy += day;
+    return doy;
+}
+
+float SolarManager::convertDegToRad(float angle)
+{
+    return angle * PI / 180.0;
+}
+
+float SolarManager::convertRadToDeg(float angle)
+{
+    return angle * 180.0 / PI;
+}
+
+tm *SolarManager::calculateSunrise(float latitude, float longitude, int utcOffset, bool isDaylightSaving, struct tm timeinfo)
+{
+    // Calcul de N basé sur l'heure et la date UTC
+    int doy = dayOfYear(timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900);
+    float N = doy + (timeinfo.tm_hour / 24.0);
+
+    float L = fmod(280.460 + 0.98564736 * N, 360.0);
+    float g = fmod(357.528 + 0.98560028 * N, 360.0);
+    float lambda = L + 1.915 * sin(convertDegToRad(g)) + 0.020 * sin(convertDegToRad(2 * g));
+    float delta = asin(sin(convertDegToRad(lambda)) * sin(convertDegToRad(23.45)));
+    float cosH = (sin(convertDegToRad(-0.58)) - sin(convertDegToRad(latitude)) * sin(delta)) / (cos(convertDegToRad(latitude)) * cos(delta));
+
+    if (cosH > 1 || cosH < -1)
+        return nullptr;
+
+    float H = convertRadToDeg(acos(cosH));
+
+    // Calcul de l'heure en temps solaire local
+    float sunriseTimeSolar = 12.0 - H / 15.0;
+
+    // Conversion en heure locale
+    float sunriseLocal = sunriseTimeSolar - (longitude / 15.0) + utcOffset;
+    if (isDaylightSaving)
+    {
+        sunriseLocal += 1.0;
+    }
+
+    tm *result = new tm;
+    *result = timeinfo;
+    result->tm_hour = (int)floor(sunriseLocal);
+    result->tm_min = (int)floor((sunriseLocal - result->tm_hour) * 60);
+    result->tm_sec = 0;
+
+    time_t t = mktime(result);
+    localtime_r(&t, result);
+    return result;
+}
+
+tm *SolarManager::calculateSunset(float latitude, float longitude, int utcOffset, bool isDaylightSaving, struct tm timeinfo)
+{
+    int doy = dayOfYear(timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900);
+    float N = doy + (timeinfo.tm_hour / 24.0);
+    float L = fmod(280.460 + 0.98564736 * N, 360.0);
+    float g = fmod(357.528 + 0.98560028 * N, 360.0);
+    float lambda = L + 1.915 * sin(convertDegToRad(g)) + 0.020 * sin(convertDegToRad(2 * g));
+    float delta = asin(sin(convertDegToRad(lambda)) * sin(convertDegToRad(23.45)));
+    float cosH = (sin(convertDegToRad(-0.58)) - sin(convertDegToRad(latitude)) * sin(delta)) / (cos(convertDegToRad(latitude)) * cos(delta));
+
+    if (cosH > 1 || cosH < -1)
+        return nullptr;
+
+    float H = convertRadToDeg(acos(cosH));
+    float sunsetTimeSolar = 12.0 + H / 15.0;
+
+    float sunsetLocal = sunsetTimeSolar - (longitude / 15.0) + utcOffset;
+    if (isDaylightSaving)
+    {
+        sunsetLocal += 1.0;
+    }
+
+    tm *result = new tm;
+    *result = timeinfo;
+    result->tm_hour = (int)floor(sunsetLocal);
+    result->tm_min = (int)floor((sunsetLocal - result->tm_hour) * 60);
+    result->tm_sec = 0;
+
+    time_t t = mktime(result);
+    localtime_r(&t, result);
+    return result;
 }
