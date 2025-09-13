@@ -15,7 +15,7 @@ public:
     void setup(const char *server, int port, const char *username, const char *password, const char *topic);
     // Méthodes de connexion et d'envoi
     void connect(int timeout = 5);
-    void sendData(float temperature, float power);
+    void sendData(float temperature, float triacOpeningPercentage);
     // Méthode pour que homeAssistant découvre l'ESP32
     void sendDiscovery();
 
@@ -24,6 +24,7 @@ public:
     bool isConnected();
     // Publication de l'état du mode du chauffe-eau
     void publishBoilerMode(String boilerMode);
+    void publishBoilerTemperature(int temperature);
 
     // Ajout du getter pour boilerMode
     // String getBoilerMode() const { return boilerMode; }

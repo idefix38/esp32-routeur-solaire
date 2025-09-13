@@ -39,12 +39,21 @@ void MqttManager::connect(int timeout)
         if (client.connect("ESP32Client", username.c_str(), password.c_str()))
         {
             Serial.println("Connecté au broker MQTT");
-            // S'abonner au topic de commande du chauffe-eau
-            String commandTopic = String(topic.c_str()) + "/boiler/mode/set";
-            client.subscribe(commandTopic.c_str());
-
+            // S'abonner aux topics de commande
+            String modeCommandTopic = String(topic.c_str()) + "/boiler/mode/set";
+            client.subscribe(modeCommandTopic.c_str());
             Serial.print("Abonnement au topic : ");
-            Serial.println(commandTopic);
+            Serial.println(modeCommandTopic);
+
+            String tempCommandTopic = String(topic.c_str()) + "/boiler/temperature/set";
+            client.subscribe(tempCommandTopic.c_str());
+            Serial.print("Abonnement au topic : ");
+            Serial.println(tempCommandTopic);
+
+            // Publier l'état initial
+            Config config = configManager.loadConfig();
+            publishBoilerMode(config.boilerMode.c_str());
+            publishBoilerTemperature(config.boilerTemperature);
         }
         else
         {
@@ -65,36 +74,58 @@ void MqttManager::connect(int timeout)
 void MqttManager::onMqttMessage(char *topic, byte *payload, unsigned int length)
 {
     String topicStr = String(topic);
-    String expectedTopic = String(this->topic.c_str());
-    expectedTopic += "/boiler/mode/set";
-    if (topicStr == expectedTopic)
-    {
-        String modePayload;
-        for (unsigned int i = 0; i < length; i++)
-        {
-            modePayload += (char)payload[i];
-        }
-        modePayload.trim();
-        if (modePayload == "auto" || modePayload == "on" || modePayload == "off")
-        {
+    String modeTopic = String(this->topic.c_str()) + "/boiler/mode/set";
+    String tempTopic = String(this->topic.c_str()) + "/boiler/temperature/set";
 
+    // Convertir le payload en String
+    String payloadStr;
+    for (unsigned int i = 0; i < length; i++)
+    {
+        payloadStr += (char)payload[i];
+    }
+    payloadStr.trim();
+
+    if (topicStr == modeTopic)
+    {
+        if (payloadStr == "auto" || payloadStr == "on" || payloadStr == "off")
+        {
             Config configTmp = this->configManager.loadConfig();
-            configTmp.boilerMode = modePayload.c_str();
+            configTmp.boilerMode = payloadStr.c_str();
             this->configManager.saveConfig(configTmp);
 
-            // Met à jour la variable globale config pour prise en compte immédiate dans loop()
             extern Config config;
             config = configTmp;
 
             Serial.print("[MQTT] Mode chauffe-eau mis à jour : ");
-            Serial.println(modePayload);
-            // Publier le nouvel état sur le topic state
-            this->publishBoilerMode(modePayload);
+            Serial.println(payloadStr);
+            this->publishBoilerMode(payloadStr);
         }
         else
         {
             Serial.print("[MQTT] Mode reçu invalide : ");
-            Serial.println(modePayload);
+            Serial.println(payloadStr);
+        }
+    }
+    else if (topicStr == tempTopic)
+    {
+        int temp = payloadStr.toInt();
+        if (temp >= 0 && temp <= 80) // Validation de la plage de température
+        {
+            Config configTmp = this->configManager.loadConfig();
+            configTmp.boilerTemperature = temp;
+            this->configManager.saveConfig(configTmp);
+
+            extern Config config;
+            config = configTmp;
+
+            Serial.print("[MQTT] Température de consigne mise à jour : ");
+            Serial.println(temp);
+            this->publishBoilerTemperature(temp);
+        }
+        else
+        {
+            Serial.print("[MQTT] Température reçue invalide : ");
+            Serial.println(payloadStr);
         }
     }
 }
@@ -110,9 +141,16 @@ void MqttManager::publishBoilerMode(String mode)
 
         // Le topic pour l'état du mode du chauffe-eau
 
-        String stateTopic = String(this->topic.c_str()) + "/boiler/mode/state";
-        client.publish(stateTopic.c_str(), mode.c_str(), true);
+        String topic = String(this->topic.c_str()) + "/boiler/mode/state";
+        client.publish(topic.c_str(), mode.c_str(), true);
     }
+}
+
+// Publier l'état de la température de consigne
+void MqttManager::publishBoilerTemperature(int temperature)
+{
+    String topic = String(this->topic.c_str()) + "/boiler/temperature/state";
+    client.publish(topic.c_str(), String(temperature).c_str(), true);
 }
 
 // Méthode pour maintenir la connexion MQTT
@@ -154,30 +192,29 @@ void MqttManager::sendDiscovery()
         Serial.println("    - Échec de l'envoi du message discovery (temp).");
     }
 
-    // Découverte du capteur de puissance
-    String powerConfigTopic = "homeassistant/sensor/boiler/power/config";
-    JsonDocument docPower;
-    docPower["name"] = "Puissance envoyée au Chauffe-Eau";
-    docPower["state_topic"] = topic + "/state";
-    docPower["unit_of_measurement"] = "W";
-    docPower["device_class"] = "power";
-    docPower["unique_id"] = "boiler_power";
-    docPower["value_template"] = "{{ value_json.power}}";
-    docPower["icon"] = "mdi:flash";
-    docPower["device"]["name"] = "Routeur solaire";
-    docPower["device"]["identifiers"] = "Routeur_solaire";
-    docPower["device"]["model"] = "ESP32";
-    docPower["device"]["manufacturer"] = "Mon routeur solaire";
+    // Découverte du capteur de pourcentage d'ouverture du triac
+    String triacConfigTopic = "homeassistant/sensor/boiler/triac_opening/config";
+    JsonDocument docTriac;
+    docTriac["name"] = "Ouverture du Triac";
+    docTriac["state_topic"] = topic + "/state";
+    docTriac["unit_of_measurement"] = "%";
+    docTriac["unique_id"] = "boiler_triac_opening";
+    docTriac["value_template"] = "{{ value_json.triac_opening_percentage}}";
+    docTriac["icon"] = "mdi:percent";
+    docTriac["device"]["name"] = "Routeur solaire";
+    docTriac["device"]["identifiers"] = "Routeur_solaire";
+    docTriac["device"]["model"] = "ESP32";
+    docTriac["device"]["manufacturer"] = "Mon routeur solaire";
 
-    String jsonPowerString;
-    serializeJson(docPower, jsonPowerString);
-    if (client.publish(powerConfigTopic.c_str(), jsonPowerString.c_str(), true))
+    String jsonTriacString;
+    serializeJson(docTriac, jsonTriacString);
+    if (client.publish(triacConfigTopic.c_str(), jsonTriacString.c_str(), true))
     {
-        Serial.println("[-] Send discovery message to homeassitant (power)");
+        Serial.println("[-] Send discovery message to homeassitant (triac opening)");
     }
     else
     {
-        Serial.println("    - Échec de l'envoi du message discovery (power).");
+        Serial.println("    - Échec de l'envoi du message discovery (triac opening).");
     }
 
     // Découverte du switch pour le mode du chauffe-eau
@@ -207,14 +244,43 @@ void MqttManager::sendDiscovery()
     {
         Serial.println("    - Échec de l'envoi du message discovery (boiler mode).");
     }
+
+    // Découverte du number input pour la température du chauffe-eau
+    String numberConfigTopic = "homeassistant/number/boiler/temperature_setpoint/config";
+    JsonDocument docNumber;
+    docNumber["name"] = "Consigne Température Chauffe-eau";
+    docNumber["command_topic"] = topic + "/boiler/temperature/set";
+    docNumber["state_topic"] = topic + "/boiler/temperature/state";
+    docNumber["unique_id"] = "esp32_boiler_temp_setpoint";
+    docNumber["unit_of_measurement"] = "°C";
+    docNumber["device_class"] = "temperature";
+    docNumber["min"] = 0;
+    docNumber["max"] = 80;
+    docNumber["step"] = 1;
+    docNumber["icon"] = "mdi:thermometer-plus";
+    docNumber["device"]["name"] = "Routeur solaire";
+    docNumber["device"]["identifiers"] = "Routeur_solaire";
+    docNumber["device"]["model"] = "ESP32";
+    docNumber["device"]["manufacturer"] = "Mon routeur solaire";
+
+    String jsonNumber;
+    serializeJson(docNumber, jsonNumber);
+    if (client.publish(numberConfigTopic.c_str(), jsonNumber.c_str(), true))
+    {
+        Serial.println("[-] Send discovery message to homeassistant (boiler temp setpoint)");
+    }
+    else
+    {
+        Serial.println("    - Échec de l'envoi du message discovery (boiler temp setpoint).");
+    }
 }
 
-void MqttManager::sendData(float temperature, float power)
+void MqttManager::sendData(float temperature, float triacOpeningPercentage)
 {
     JsonDocument doc;
     // Arrondir les valeurs à deux décimales
     doc["temperature"] = round(temperature * 100) / 100.0;
-    doc["power"] = round(power * 100) / 100.0;
+    doc["triac_opening_percentage"] = round(triacOpeningPercentage * 100) / 100.0;
 
     String payload;
     serializeJson(doc, payload);

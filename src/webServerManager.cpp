@@ -30,7 +30,7 @@ void WebServerManager::handleGetConfig(AsyncWebServerRequest *request)
 
     JsonObject boilerObj = doc["boiler"].to<JsonObject>();
     boilerObj["mode"] = config.boilerMode;
-    boilerObj["power"] = config.boilerPower;
+    boilerObj["temperature"] = config.boilerTemperature;
 
     String jsonString;
     serializeJson(doc, jsonString);
@@ -126,7 +126,7 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
     const char *shellyEmIp = doc["ip"] | "";
     const char *shellyEmChannel = doc["channel"] | "";
     const char *boilerMode = doc["mode"] | "Auto";
-    int boilerPower = doc["power"] | 2500;
+    int temperature = doc["temperature"] | 50;
 
     if (strlen(shellyEmIp) == 0 || strlen(shellyEmChannel) == 0)
     {
@@ -139,7 +139,7 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
     configTmp.shellyEmIp = shellyEmIp;
     configTmp.shellyEmChannel = shellyEmChannel;
     configTmp.boilerMode = boilerMode;
-    configTmp.boilerPower = boilerPower;
+    configTmp.boilerTemperature = temperature;
     this->configManager.saveConfig(configTmp);
 
     // Met à jour la variable globale config pour prise en compte immédiate dans loop()
@@ -147,6 +147,7 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
     config = configTmp;
     // Met à jour le mode du chauffe-eau dans le gestionnaire MQTT
     this->mqttManager.publishBoilerMode(boilerMode);
+    this->mqttManager.publishBoilerTemperature(temperature);
 
     request->send(200, "application/json", "{\"status\":\"success\"}");
 }
@@ -218,8 +219,8 @@ void WebServerManager::setupApiRoutes()
     server.on("/getData", HTTP_GET, [](AsyncWebServerRequest *request)
               {
                       extern volatile float lastTemperature;
-                      extern volatile float regulatedPower;
-                      request->send(200, "application/json", "{\"temperature\":\"" + String(lastTemperature) + "\", \"regulatedPower\":\"" + String(regulatedPower) + "\"}"); });
+                      extern volatile float triacOpeningPercentage;
+                      request->send(200, "application/json", "{\"temperature\":\"" + String(lastTemperature) + "\", \"triacOpeningPercentage\":\"" + String(triacOpeningPercentage) + "\"}"); });
 
     server.on("/getConfig", HTTP_GET, [this](AsyncWebServerRequest *request)
               { handleGetConfig(request); });

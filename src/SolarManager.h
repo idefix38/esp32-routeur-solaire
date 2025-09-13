@@ -8,13 +8,13 @@ class SolarManager
 public:
     SolarManager(uint8_t pinTriac, uint8_t _pinZeroCross);
     void begin();
-    float RegulationProduction(float Power);
+    float updateRegulation(float power);
     void On();
     void Off();
 
     // Accès aux variables utiles
     volatile int delayTriac;
-    volatile int retard;
+    volatile int powerDelay;
 
     // Wrappers statiques pour interruptions
     static void IRAM_ATTR onTimerStatic();

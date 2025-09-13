@@ -1,13 +1,14 @@
 import React from 'react';
-import { LucideProps } from 'lucide-react';
+import { LucideProps, CheckCircle2 } from 'lucide-react';
 
 interface CardProps {
   value: string | null;
   label: string;
   Icon: React.ComponentType<LucideProps>;
+  showCheck?: boolean;
 }
 
-export const Card = ({ value, label, Icon }: CardProps) => {
+export const Card = ({ value, label, Icon, showCheck = false }: CardProps) => {
   return (
     <div className="overflow-hidden rounded-lg bg-gray-100 shadow">
       <div className="p-5">
@@ -22,11 +23,16 @@ export const Card = ({ value, label, Icon }: CardProps) => {
               </dt>
               <dd className="flex items-baseline">
                 <div className="text-2xl font-semibold text-gray-900">
-                  {value !== null ? `${value}` : 'Chargement...'}
+                  {value !== null ? `${value}` : '?'}
                 </div>
               </dd>
             </dl>
           </div>
+          {showCheck && (
+            <div className="ml-4 flex-shrink-0">
+              <CheckCircle2 className="h-6 w-6 text-green-700" />
+            </div>
+          )}
         </div>
       </div>
     </div>

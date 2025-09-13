@@ -17,7 +17,7 @@ struct Config
     std::string shellyEmIp;      // Adresse Ip du module Shelly EM
     std::string shellyEmChannel; // Channel du module Shelly EM
     std::string boilerMode;      // Auto, On ou Off ( Auto = Routeur Solaire, On = Chauffe eau en marche forcé , Off = Chauffe à l'arret )
-    int boilerPower;             // Puissance du chauffe-eau en watts
+    int boilerTemperature;       // Température cible du chauffe eau
 };
 
 class ConfigManager

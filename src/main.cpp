@@ -32,7 +32,8 @@ SolarManager *solarManager = nullptr;
 
 // Shared Data
 volatile float lastTemperature = 0;
-volatile float regulatedPower = 0;
+volatile float triacOpeningPercentage = 0;
+volatile float lastPower = 0;
 
 // Mutex for thread-safe operations
 SemaphoreHandle_t configMutex;
@@ -42,7 +43,6 @@ void signalProcessingTask(void *pvParameters)
 {
     Serial.println("Signal Processing Task started on core 0");
     static unsigned long lastShellyTime = 0;
-    float lastPower = 0;
 
     for (;;)
     {
@@ -50,11 +50,18 @@ void signalProcessingTask(void *pvParameters)
 
         xSemaphoreTake(configMutex, portMAX_DELAY);
         std::string mode = config.boilerMode;
-        int boilerPower = config.boilerPower;
+        int boilerTemperature = config.boilerTemperature;
         xSemaphoreGive(configMutex);
 
-        if (mode == "Auto" || mode == "auto")
+        if (lastTemperature > config.boilerTemperature)
         {
+            // Le chauffe eau est chaud, pas de regulation
+            solarManager->Off();
+            triacOpeningPercentage = 0;
+        }
+        else if (mode == "Auto" || mode == "auto")
+        {
+            // Toutes les 1 seconde, lecture de la puissance consommée
             if ((now - lastShellyTime) > 1000)
             {
                 if (shelly != nullptr)
@@ -62,20 +69,22 @@ void signalProcessingTask(void *pvParameters)
                     lastPower = shelly->getPower();
                     Serial.print("[ShellyEM] Puissance: ");
                     Serial.println(lastPower);
-                    regulatedPower = solarManager->RegulationProduction(lastPower);
+                    triacOpeningPercentage = solarManager->updateRegulation(lastPower);
                 }
                 lastShellyTime = now;
             }
         }
         else if (mode == "On" || mode == "on")
         {
+            // Mode "Marche Forcé"
             solarManager->On();
-            regulatedPower = 0;
+            triacOpeningPercentage = 100;
         }
         else if (mode == "Off" || mode == "off")
         {
+            // Mode "Arret Forcé"
             solarManager->Off();
-            regulatedPower = 0;
+            triacOpeningPercentage = 0;
         }
 
         // Delay to prevent task from hogging the CPU
@@ -106,6 +115,7 @@ void communicationTask(void *pvParameters)
             }
             mqttManager.loop();
 
+            // Envoi du SendDiscovery à Home Assistant
             if (now - lastDiscoveryTime > 5 * 60 * 1000)
             {
                 mqttManager.sendDiscovery();
@@ -115,7 +125,7 @@ void communicationTask(void *pvParameters)
             if (now - lastTempTime > 5000)
             {
                 lastTemperature = getTemperature();
-                mqttManager.sendData(lastTemperature, regulatedPower);
+                mqttManager.sendData(lastTemperature, triacOpeningPercentage);
                 lastTempTime = now;
             }
         }
@@ -154,7 +164,7 @@ void setup()
     doc["shellyEmIp"] = config.shellyEmIp;
     doc["shellyEmChannel"] = config.shellyEmChannel;
     doc["boilerMode"] = config.boilerMode;
-    doc["boilerPower"] = config.boilerPower;
+    doc["boilerTemperature"] = config.boilerTemperature;
     String jsonConfig;
     serializeJsonPretty(doc, jsonConfig);
     Serial.println("--------- Configuration chargée ---------");

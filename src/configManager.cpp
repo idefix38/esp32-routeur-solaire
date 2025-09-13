@@ -15,6 +15,7 @@ bool ConfigManager::saveConfig(const Config &config)
 
     Serial.printf("  - Adresse IP Shelly EM: %s\n", config.shellyEmIp.c_str());
     Serial.printf("  - Channel Shelly EM: %s\n", config.shellyEmChannel.c_str());
+    Serial.printf("  - BoilerTemperature : %d\n", config.boilerTemperature);
 
     _preferences.begin("config", false); // "config" est l'espace de noms pour stocker les configurations
     _preferences.putString("wifiSSID", config.wifiSSID.c_str());
@@ -27,7 +28,8 @@ bool ConfigManager::saveConfig(const Config &config)
     _preferences.putString("shellyEmIp", config.shellyEmIp.c_str());
     _preferences.putString("shellyEmChannel", config.shellyEmChannel.c_str());
     _preferences.putString("boilerMode", config.boilerMode.c_str());
-    _preferences.putInt("boilerPower", config.boilerPower);
+    _preferences.putInt("boilTemp", config.boilerTemperature);
+
     _preferences.end(); // Ferme l'accès aux préférences
 
     return true; // Retourne vrai si la sauvegarde est réussie
@@ -50,7 +52,7 @@ Config ConfigManager::loadConfig()
     config.shellyEmIp = _preferences.getString("shellyEmIp", "").c_str();
     config.shellyEmChannel = _preferences.getString("shellyEmChannel", "").c_str();
     config.boilerMode = _preferences.getString("boilerMode", "Auto").c_str();
-    config.boilerPower = _preferences.getInt("boilerPower", 2500);
+    config.boilerTemperature = _preferences.getInt("boilTemp", 50);
     _preferences.end();
 
     return config; // Retourne l'objet de configuration

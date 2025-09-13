@@ -21,7 +21,7 @@ function SolarForm({ onSubmit, loading, boilerSettings, shellyEmSettings }: sola
   const modeAutoRef = useRef<HTMLInputElement>(null);
   const modeOnRef = useRef<HTMLInputElement>(null);
   const modeOffRef = useRef<HTMLInputElement>(null);
-  const powerRef = useRef<HTMLInputElement>(null);
+  const temperatureRef = useRef<HTMLInputElement>(null);
   //const [mode, setMode] = useState(boilerSettings?.mode || 'Auto');
 
   // Populate the form fields with initial values if provided
@@ -34,7 +34,7 @@ function SolarForm({ onSubmit, loading, boilerSettings, shellyEmSettings }: sola
       if (modeAutoRef.current) modeAutoRef.current.checked = boilerSettings.mode.toLowerCase() === 'auto';
       else if (modeOnRef.current) modeOnRef.current.checked = boilerSettings.mode.toLowerCase() === 'on';
       else if (modeOffRef.current) modeOffRef.current.checked = boilerSettings.mode.toLowerCase() === 'off';
-      if (powerRef.current) powerRef.current.value = boilerSettings.power?.toString() || '2500';
+      if (temperatureRef.current) temperatureRef.current.value = boilerSettings.temperature?.toString() || '50';
     }
   }, [boilerSettings, shellyEmSettings]);
 
@@ -47,7 +47,7 @@ function SolarForm({ onSubmit, loading, boilerSettings, shellyEmSettings }: sola
     }
     const dataBoiler : boilerConfig = {
       mode : modeAutoRef.current?.checked ? 'auto' : modeOnRef.current?.checked ? 'on' : 'off',
-      power: parseInt(powerRef.current?.value || '2500')
+      temperature: parseInt(temperatureRef.current?.value || '50')
     }    
     onSubmit(dataBoiler, dataShelly);
   };
@@ -129,14 +129,14 @@ function SolarForm({ onSubmit, loading, boilerSettings, shellyEmSettings }: sola
         </label>
       </div>
       <div>
-        <label htmlFor="boilerPower" className="block text-sm font-medium text-gray-700">Puissance du chauffe-eau (W)</label>
+        <label htmlFor="boilerTemp" className="block text-sm font-medium text-gray-700">Température cible du chauffe-eau (C°)</label>
         <input
-          id="boilerPower"
-          name="boilerPower"
+          id="boilerTemp"
+          name="boilerTemp"
           type="number"
-          ref={powerRef}
+          ref={temperatureRef}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-lg px-4 py-3"
-          placeholder="2500"
+          placeholder="50 °C"
           required
         />
       </div>

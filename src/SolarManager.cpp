@@ -3,7 +3,7 @@
 SolarManager *SolarManager::instance = nullptr;
 
 SolarManager::SolarManager(uint8_t _pinTriac, uint8_t _pinZeroCross)
-    : _pinTriac(_pinTriac), _pinZeroCross(_pinZeroCross), delayTriac(0), retard(100), avgPowerPerPoint(0)
+    : _pinTriac(_pinTriac), _pinZeroCross(_pinZeroCross), delayTriac(0), powerDelay(100), avgPowerPerPoint(0)
 {
     instance = this;
 }
@@ -34,7 +34,7 @@ void IRAM_ATTR SolarManager::onZeroCrossStatic()
 void SolarManager::handleTimer()
 {
     delayTriac += 1;
-    if (delayTriac > retard && retard < 98)
+    if (delayTriac > powerDelay && powerDelay < 98)
     {
         digitalWrite(_pinTriac, HIGH);
     }
@@ -60,16 +60,16 @@ void SolarManager::handleZeroCross()
 /**
  * Régulation du Triac selon la puissance mesurée, retourne le pourcentage d'ouverture du triac
  */
-float SolarManager::RegulationProduction(float power)
+float SolarManager::updateRegulation(float power)
 {
     lastPower = power; // Mémorise la dernière puissance mesurée
 
-    // La valeur '10' peut être ajustée pour affiner la régulation.
-    int ecart = int(power * 100 / 2000);
+    // La valeur '2000' correspond à la puissance max du chauffe-eau. A rendre configurable.
+    int powerDifference = int(power * 100 / 2000);
 
-    if (ecart != 0 && ecart < 98)
+    if (powerDifference != 0 && powerDifference < 98)
     {
-        float powerPerPoint = power / ecart;
+        float powerPerPoint = power / powerDifference;
         // Calcul de la moyenne mobile (puissance / % d'ouverture)
         const float alpha = 0.05; // Facteur de lissage = 5%
         avgPowerPerPoint = alpha * powerPerPoint + (1.0f - alpha) * avgPowerPerPoint;
@@ -83,22 +83,22 @@ float SolarManager::RegulationProduction(float power)
     else if (abs(power) < avgPowerPerPoint && power > 0)
     {
         // Légère surconsommation  on augmente le retard de 1 pour diminuer la puissance
-        retard = retard + 1;
+        powerDelay = powerDelay + 1;
     }
     else
     {
         // Ajustement du retard
-        retard = retard + ecart;
+        powerDelay = powerDelay + powerDifference;
     }
 
-    if (retard < 0)
-        retard = 0;
-    if (retard > 100)
-        retard = 100;
+    if (powerDelay < 0)
+        powerDelay = 0;
+    if (powerDelay > 100)
+        powerDelay = 100;
 
-    float regulatedPower = (100.0f - retard) * avgPowerPerPoint;
+    float triacOpeningPercentage = 100.0f - powerDelay;
 
-    return regulatedPower;
+    return triacOpeningPercentage;
 }
 
 /**
@@ -106,7 +106,7 @@ float SolarManager::RegulationProduction(float power)
  */
 void SolarManager::On()
 {
-    retard = 0;
+    powerDelay = 0;
     digitalWrite(_pinTriac, HIGH);
 }
 
@@ -115,6 +115,6 @@ void SolarManager::On()
  */
 void SolarManager::Off()
 {
-    retard = 100;
+    powerDelay = 100;
     digitalWrite(_pinTriac, LOW);
 }
