@@ -36,6 +36,10 @@ volatile float lastTemperature = 0;
 volatile float triacOpeningPercentage = 0;
 volatile float lastPower = 0;
 
+// Latitude et longitude pour Brest
+const double latitude = 48.5846140;
+const double longitude = 7.7507127;
+
 // Mutex for thread-safe operations
 SemaphoreHandle_t configMutex;
 
@@ -65,24 +69,30 @@ void signalProcessingTask(void *pvParameters)
             // Toutes les 1 seconde, lecture de la puissance consommée
             if ((now - lastShellyTime) > 1000)
             {
-                if (shelly != nullptr)
+                // Determine si on est entre le lever et le coucher du soleil
+                struct tm localNow;
+                if (getLocalTime(&localNow))
                 {
-                    lastPower = shelly->getPower();
-                    Serial.print("[ShellyEM] Puissance: ");
-                    Serial.println(lastPower);
-                    triacOpeningPercentage = solarManager->updateRegulation(lastPower);
+                    struct tm sunrise = solarManager->calculateSunrise(latitude, longitude);
+                    struct tm sunset = solarManager->calculateSunset(latitude, longitude);
+
+                    int nowMinutes = localNow.tm_hour * 60 + localNow.tm_min;
+                    int sunriseMinutes = sunrise.tm_hour * 60 + sunrise.tm_min;
+                    int sunsetMinutes = sunset.tm_hour * 60 + sunset.tm_min;
+
+                    // On est bien entre le lever et le coucher du soleil
+                    if (nowMinutes >= sunriseMinutes && nowMinutes <= sunsetMinutes)
+                    {
+                        lastPower = shelly->getPower();
+                        Serial.print("[ShellyEM] Puissance: ");
+                        Serial.println(lastPower);
+                        triacOpeningPercentage = solarManager->updateRegulation(lastPower);
+                    }
                 }
+
+                // keep throttle timing regardless of whether we read or not
                 lastShellyTime = now;
             }
-
-            // struct tm timeinfo;
-            // if (getLocalTime(&timeinfo))
-            // {
-            //     char timeStr[50]; // Increased buffer size
-            //     strftime(timeStr, sizeof(timeStr), "%A, %B %d %Y %H:%M:%S", &timeinfo);
-            //     Serial.print("    - Date/Heure: ");
-            //     Serial.println(timeStr);
-            // }
         }
         else if (mode == "On" || mode == "on")
         {
@@ -207,9 +217,6 @@ void setup()
     // Synchronize time with NTP server for Paris timezone
     Serial.println("[-] Synchronisation Date/Heure NTP server time.google.com");
     configTzTime("CET-1CEST,M3.5.0,M10.5.0/3", "time.google.com");
-    const float latitude = 48.8575;
-    const float longitude = 2.3514;
-    const int lyon_utc_offset = 1;
 
     // Récupère la date et l'heure locale
     struct tm timeinfo_local;
@@ -220,30 +227,31 @@ void setup()
         Serial.print("    - Date/Heure locale: ");
         Serial.println(timeStr);
 
-        // Définir les paramètres pour le calcul astronomique
-        // getLocalTime renvoie déjà l'heure avec le décalage UTC et l'heure d'été
-        // Les fonctions calculateSunrise/Sunset ont besoin du décalage initial pour le calcul
-        const bool is_daylight_saving_lyon = timeinfo_local.tm_isdst;
+        // Calcul lever et coucher du soleil
+        struct tm sunrise = solarManager->calculateSunrise(latitude, longitude);
+        struct tm sunset = solarManager->calculateSunset(latitude, longitude);
 
-        // On utilise l'heure locale pour obtenir la date, mais on la remet à minuit pour le calcul
-        struct tm today_local = timeinfo_local;
-        today_local.tm_hour = 0;
-        today_local.tm_min = 0;
-        today_local.tm_sec = 0;
+        if (sunrise.tm_year != -1)
+        {
+            strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &sunrise);
+            Serial.print("    - Lever du soleil: ");
+            Serial.println(timeStr);
+        }
+        else
+        {
+            Serial.println("    - Lever du soleil: (erreur)");
+        }
 
-        // Appel des fonctions de calcul
-        tm *sunrise = SolarManager::calculateSunrise(latitude, longitude, lyon_utc_offset, is_daylight_saving_lyon, today_local);
-        strftime(timeStr, sizeof(timeStr), "%H:%M:%S", sunrise);
-        Serial.print("    - Lever du soleil: ");
-        Serial.println(timeStr);
-
-        tm *sunset = SolarManager::calculateSunset(latitude, longitude, lyon_utc_offset, is_daylight_saving_lyon, today_local);
-        strftime(timeStr, sizeof(timeStr), "%H:%M:%S", sunset);
-        Serial.print("    - Coucher du soleil: ");
-        Serial.println(timeStr);
-
-        delete sunrise;
-        delete sunset;
+        if (sunset.tm_year != -1)
+        {
+            strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &sunset);
+            Serial.print("    - Coucher du soleil: ");
+            Serial.println(timeStr);
+        }
+        else
+        {
+            Serial.println("    - Coucher du soleil: (erreur)");
+        }
     }
 
     // Setup MQTT

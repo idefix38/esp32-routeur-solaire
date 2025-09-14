@@ -139,83 +139,202 @@ int SolarManager::dayOfYear(int day, int month, int year)
     return doy;
 }
 
-float SolarManager::convertDegToRad(float angle)
+/**
+ * @brief Equivalent de timegm() pour Arduino/ESP32
+ * Convertit un struct tm (UTC) en time_t
+ */
+time_t SolarManager::my_timegm(struct tm *tm)
 {
-    return angle * PI / 180.0;
+    // Enregistrement du fuseau actuel
+    char *tz = getenv("TZ");
+    setenv("TZ", "UTC0", 1); // forcer UTC
+    tzset();
+
+    time_t t = mktime(tm); // mktime considère maintenant tm comme UTC
+
+    // Restaure le fuseau initial
+    if (tz)
+        setenv("TZ", tz, 1);
+    else
+        unsetenv("TZ");
+    tzset();
+
+    return t;
 }
 
-float SolarManager::convertRadToDeg(float angle)
+// Portable conversion of a UTC struct tm to time_t without changing TZ.
+// Uses civil date formula to compute seconds since epoch for the UTC date/time.
+static time_t timegm_compat(const struct tm *tm)
 {
-    return angle * 180.0 / PI;
+    int year = tm->tm_year + 1900;
+    int month = tm->tm_mon + 1; // 1..12
+    int day = tm->tm_mday;
+
+    int a = (14 - month) / 12;
+    int y = year + 4800 - a;
+    int m = month + 12 * a - 3;
+    long long julianDay = day + (153 * m + 2) / 5 + 365LL * y + y / 4 - y / 100 + y / 400 - 32045;
+    long long days = julianDay - 2440588LL; // days since 1970-01-01
+
+    long long secs = days * 86400LL + (long long)tm->tm_hour * 3600LL + (long long)tm->tm_min * 60LL + (long long)tm->tm_sec;
+    return (time_t)secs;
 }
 
-tm *SolarManager::calculateSunrise(float latitude, float longitude, int utcOffset, bool isDaylightSaving, struct tm timeinfo)
+// /**
+//  * @brief Convertit des minutes UTC en struct tm locale
+//  */
+// tm *SolarManager::convertUtcMinutesToLocal(double utcMinutes)
+// {
+//     // Récupère le temps actuel en UTC
+//     time_t nowUtc = time(nullptr);
+//     struct tm utcNow;
+//     gmtime_r(&nowUtc, &utcNow); // UTC réel
+
+//     // Découpe les minutes en heures et minutes
+//     utcNow.tm_hour = (int)(utcMinutes / 60.0);
+//     utcNow.tm_min = (int)fmod(utcMinutes, 60.0);
+//     utcNow.tm_sec = 0;
+
+//     // Convertit en time_t UTC
+//     time_t utcTime = my_timegm(&utcNow);
+
+//     // Convertit en heure locale
+//     struct tm *local = new tm();
+//     localtime_r(&utcTime, local);
+//     return local;
+// }
+
+/**
+ * @brief Calcule l'heure du lever du soleil en heure locale (retour par valeur)
+ */
+struct tm SolarManager::calculateSunrise(double latitude, double longitude)
 {
-    // Calcul de N basé sur l'heure et la date UTC
-    int doy = dayOfYear(timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900);
-    float N = doy + (timeinfo.tm_hour / 24.0);
+    struct tm invalid{};
+    invalid.tm_year = -1; // sentinel for error
 
-    float L = fmod(280.460 + 0.98564736 * N, 360.0);
-    float g = fmod(357.528 + 0.98560028 * N, 360.0);
-    float lambda = L + 1.915 * sin(convertDegToRad(g)) + 0.020 * sin(convertDegToRad(2 * g));
-    float delta = asin(sin(convertDegToRad(lambda)) * sin(convertDegToRad(23.45)));
-    float cosH = (sin(convertDegToRad(-0.58)) - sin(convertDegToRad(latitude)) * sin(delta)) / (cos(convertDegToRad(latitude)) * cos(delta));
-
-    if (cosH > 1 || cosH < -1)
-        return nullptr;
-
-    float H = convertRadToDeg(acos(cosH));
-
-    // Calcul de l'heure en temps solaire local
-    float sunriseTimeSolar = 12.0 - H / 15.0;
-
-    // Conversion en heure locale
-    float sunriseLocal = sunriseTimeSolar - (longitude / 15.0) + utcOffset;
-    if (isDaylightSaving)
+    struct tm now;
+    if (!getLocalTime(&now))
     {
-        sunriseLocal += 1.0;
+        return invalid;
     }
 
-    tm *result = new tm;
-    *result = timeinfo;
-    result->tm_hour = (int)floor(sunriseLocal);
-    result->tm_min = (int)floor((sunriseLocal - result->tm_hour) * 60);
-    result->tm_sec = 0;
+    int dayOfYear = now.tm_yday + 1;
+    double latRad = latitude * M_PI / 180.0;
 
-    time_t t = mktime(result);
-    localtime_r(&t, result);
-    return result;
-}
+    // Calcul de l'angle gamma pour l'équation du temps
+    double gamma = 2.0 * M_PI / 365.0 * (dayOfYear - 1 + ((now.tm_hour - 12) / 24.0));
 
-tm *SolarManager::calculateSunset(float latitude, float longitude, int utcOffset, bool isDaylightSaving, struct tm timeinfo)
-{
-    int doy = dayOfYear(timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900);
-    float N = doy + (timeinfo.tm_hour / 24.0);
-    float L = fmod(280.460 + 0.98564736 * N, 360.0);
-    float g = fmod(357.528 + 0.98560028 * N, 360.0);
-    float lambda = L + 1.915 * sin(convertDegToRad(g)) + 0.020 * sin(convertDegToRad(2 * g));
-    float delta = asin(sin(convertDegToRad(lambda)) * sin(convertDegToRad(23.45)));
-    float cosH = (sin(convertDegToRad(-0.58)) - sin(convertDegToRad(latitude)) * sin(delta)) / (cos(convertDegToRad(latitude)) * cos(delta));
+    double eqTime = 229.18 * (0.000075 +
+                              0.001868 * cos(gamma) -
+                              0.032077 * sin(gamma) -
+                              0.014615 * cos(2 * gamma) -
+                              0.040849 * sin(2 * gamma));
 
-    if (cosH > 1 || cosH < -1)
-        return nullptr;
+    double decl = 0.006918 -
+                  0.399912 * cos(gamma) +
+                  0.070257 * sin(gamma) -
+                  0.006758 * cos(2 * gamma) +
+                  0.000907 * sin(2 * gamma) -
+                  0.002697 * cos(3 * gamma) +
+                  0.00148 * sin(3 * gamma);
 
-    float H = convertRadToDeg(acos(cosH));
-    float sunsetTimeSolar = 12.0 + H / 15.0;
+    double ha = acos(cos(M_PI / 180.0 * 90.833) / (cos(latRad) * cos(decl)) - tan(latRad) * tan(decl));
 
-    float sunsetLocal = sunsetTimeSolar - (longitude / 15.0) + utcOffset;
-    if (isDaylightSaving)
+    // Minutes UTC depuis minuit
+    double sunriseMinutesUTC = 720.0 - 4.0 * longitude - eqTime - ha * 180.0 / M_PI * 4.0;
+
+    // Build a UTC struct tm for today at 00:00 UTC, then add sunriseMinutesUTC
+    time_t now_t = time(nullptr);
+    struct tm gm{};
+    gmtime_r(&now_t, &gm); // gm holds current UTC date
+
+    struct tm tm_utc_midnight = gm;
+    tm_utc_midnight.tm_hour = 0;
+    tm_utc_midnight.tm_min = 0;
+    tm_utc_midnight.tm_sec = 0;
+
+    // Set hours/min/sec according to sunriseMinutesUTC
+    int sunriseHour = (int)(sunriseMinutesUTC / 60.0);
+    int sunriseMin = (int)fmod(sunriseMinutesUTC, 60.0);
+
+    struct tm tm_sun_utc = tm_utc_midnight;
+    tm_sun_utc.tm_hour = sunriseHour;
+    tm_sun_utc.tm_min = sunriseMin;
+    tm_sun_utc.tm_sec = 0;
+
+    time_t sunriseTimeUTC = timegm_compat(&tm_sun_utc);
+
+    struct tm sunriseLocal{};
+    if (localtime_r(&sunriseTimeUTC, &sunriseLocal) == nullptr)
     {
-        sunsetLocal += 1.0;
+        return invalid;
     }
 
-    tm *result = new tm;
-    *result = timeinfo;
-    result->tm_hour = (int)floor(sunsetLocal);
-    result->tm_min = (int)floor((sunsetLocal - result->tm_hour) * 60);
-    result->tm_sec = 0;
+    return sunriseLocal;
+}
 
-    time_t t = mktime(result);
-    localtime_r(&t, result);
-    return result;
+/**
+ * @brief Calcule l'heure du coucher du soleil en heure locale (retour par valeur)
+ */
+struct tm SolarManager::calculateSunset(double latitude, double longitude)
+{
+    struct tm invalid{};
+    invalid.tm_year = -1; // sentinel for error
+
+    struct tm now;
+    if (!getLocalTime(&now))
+    {
+        return invalid;
+    }
+
+    int dayOfYear = now.tm_yday + 1;
+    double latRad = latitude * M_PI / 180.0;
+
+    double gamma = 2.0 * M_PI / 365.0 * (dayOfYear - 1 + ((now.tm_hour - 12) / 24.0));
+
+    double eqTime = 229.18 * (0.000075 +
+                              0.001868 * cos(gamma) -
+                              0.032077 * sin(gamma) -
+                              0.014615 * cos(2 * gamma) -
+                              0.040849 * sin(2 * gamma));
+
+    double decl = 0.006918 -
+                  0.399912 * cos(gamma) +
+                  0.070257 * sin(gamma) -
+                  0.006758 * cos(2 * gamma) +
+                  0.000907 * sin(2 * gamma) -
+                  0.002697 * cos(3 * gamma) +
+                  0.00148 * sin(3 * gamma);
+
+    double ha = acos(cos(M_PI / 180.0 * 90.833) / (cos(latRad) * cos(decl)) - tan(latRad) * tan(decl));
+
+    double sunsetMinutesUTC = 720.0 - 4.0 * longitude - eqTime + ha * 180.0 / M_PI * 4.0;
+
+    // Build a UTC struct tm for today at 00:00 UTC, then add sunsetMinutesUTC
+    time_t now_t = time(nullptr);
+    struct tm gm{};
+    gmtime_r(&now_t, &gm); // gm holds current UTC date
+
+    struct tm tm_utc_midnight = gm;
+    tm_utc_midnight.tm_hour = 0;
+    tm_utc_midnight.tm_min = 0;
+    tm_utc_midnight.tm_sec = 0;
+
+    int sunsetHour = (int)(sunsetMinutesUTC / 60.0);
+    int sunsetMin = (int)fmod(sunsetMinutesUTC, 60.0);
+
+    struct tm tm_sun_utc = tm_utc_midnight;
+    tm_sun_utc.tm_hour = sunsetHour;
+    tm_sun_utc.tm_min = sunsetMin;
+    tm_sun_utc.tm_sec = 0;
+
+    time_t sunsetTimeUTC = timegm_compat(&tm_sun_utc);
+
+    struct tm sunsetLocal{};
+    if (localtime_r(&sunsetTimeUTC, &sunsetLocal) == nullptr)
+    {
+        return invalid;
+    }
+
+    return sunsetLocal;
 }

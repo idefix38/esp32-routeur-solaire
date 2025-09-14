@@ -12,15 +12,18 @@ public:
     float updateRegulation(float power);
     void On();
     void Off();
-    /**
-     * Fonction pour calculer l'heure de lever du soleil et la retourner sous forme de tm*
-     * */
-    static tm *calculateSunrise(float latitude, float longitude, int utcOffset, bool isDaylightSaving, struct tm timeinfo);
 
     /**
-     * Fonction pour calculer l'heure de coucher du soleil
+     * Fonction pour calculer l'heure de lever du soleil et la retourner sous forme de struct tm (par valeur).
+     * En cas d'erreur, la structure retournée aura `tm_year == -1`.
      */
-    static tm *calculateSunset(float latitude, float longitude, int utcOffset, bool isDaylightSaving, struct tm timeinfo);
+    static struct tm calculateSunrise(double latitude, double longitude);
+
+    /**
+     * Fonction pour calculer l'heure de coucher du soleil (retour par valeur).
+     * En cas d'erreur, la structure retournée aura `tm_year == -1`.
+     */
+    static struct tm calculateSunset(double latitude, double longitude);
 
     // Accès aux variables utiles
     volatile int delayTriac;
@@ -42,8 +45,11 @@ private:
     void handleTimer();
     void handleZeroCross();
     static int dayOfYear(int day, int month, int year);
-    static float convertDegToRad(float angle);
-    static float convertRadToDeg(float angle);
+    static time_t my_timegm(struct tm *tm);
+    /**
+     * @brief Convertit des minutes UTC en struct tm locale
+     */
+    // static tm *convertUtcMinutesToLocal(double utcMinutes, const struct tm &now);
 };
 
 #endif
