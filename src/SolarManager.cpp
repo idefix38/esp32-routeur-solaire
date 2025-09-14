@@ -120,48 +120,6 @@ void SolarManager::Off()
     digitalWrite(_pinTriac, LOW);
 }
 
-/**
- *  Fonction utilitaire pour calculer le jour de l'année
- **/
-int SolarManager::dayOfYear(int day, int month, int year)
-{
-    int daysInMonth[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-    if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0))
-    {
-        daysInMonth[2] = 29;
-    }
-    int doy = 0;
-    for (int i = 1; i < month; ++i)
-    {
-        doy += daysInMonth[i];
-    }
-    doy += day;
-    return doy;
-}
-
-/**
- * @brief Equivalent de timegm() pour Arduino/ESP32
- * Convertit un struct tm (UTC) en time_t
- */
-time_t SolarManager::my_timegm(struct tm *tm)
-{
-    // Enregistrement du fuseau actuel
-    char *tz = getenv("TZ");
-    setenv("TZ", "UTC0", 1); // forcer UTC
-    tzset();
-
-    time_t t = mktime(tm); // mktime considère maintenant tm comme UTC
-
-    // Restaure le fuseau initial
-    if (tz)
-        setenv("TZ", tz, 1);
-    else
-        unsetenv("TZ");
-    tzset();
-
-    return t;
-}
-
 // Portable conversion of a UTC struct tm to time_t without changing TZ.
 // Uses civil date formula to compute seconds since epoch for the UTC date/time.
 static time_t timegm_compat(const struct tm *tm)
@@ -179,30 +137,6 @@ static time_t timegm_compat(const struct tm *tm)
     long long secs = days * 86400LL + (long long)tm->tm_hour * 3600LL + (long long)tm->tm_min * 60LL + (long long)tm->tm_sec;
     return (time_t)secs;
 }
-
-// /**
-//  * @brief Convertit des minutes UTC en struct tm locale
-//  */
-// tm *SolarManager::convertUtcMinutesToLocal(double utcMinutes)
-// {
-//     // Récupère le temps actuel en UTC
-//     time_t nowUtc = time(nullptr);
-//     struct tm utcNow;
-//     gmtime_r(&nowUtc, &utcNow); // UTC réel
-
-//     // Découpe les minutes en heures et minutes
-//     utcNow.tm_hour = (int)(utcMinutes / 60.0);
-//     utcNow.tm_min = (int)fmod(utcMinutes, 60.0);
-//     utcNow.tm_sec = 0;
-
-//     // Convertit en time_t UTC
-//     time_t utcTime = my_timegm(&utcNow);
-
-//     // Convertit en heure locale
-//     struct tm *local = new tm();
-//     localtime_r(&utcTime, local);
-//     return local;
-// }
 
 /**
  * @brief Calcule l'heure du lever du soleil en heure locale (retour par valeur)

@@ -11,12 +11,6 @@ bool ConfigManager::saveConfig(const Config &config)
 
     Serial.println("[-] Ecriture de la mémoire flash ...");
 
-    // Affiche les valeurs de configuration
-
-    Serial.printf("  - Adresse IP Shelly EM: %s\n", config.shellyEmIp.c_str());
-    Serial.printf("  - Channel Shelly EM: %s\n", config.shellyEmChannel.c_str());
-    Serial.printf("  - BoilerTemperature : %d\n", config.boilerTemperature);
-
     _preferences.begin("config", false); // "config" est l'espace de noms pour stocker les configurations
     _preferences.putString("wifiSSID", config.wifiSSID.c_str());
     _preferences.putString("wifiPassword", config.wifiPassword.c_str());
@@ -29,6 +23,9 @@ bool ConfigManager::saveConfig(const Config &config)
     _preferences.putString("shellyEmChannel", config.shellyEmChannel.c_str());
     _preferences.putString("boilerMode", config.boilerMode.c_str());
     _preferences.putInt("boilTemp", config.boilerTemperature);
+    _preferences.putFloat("latitude", config.latitude);
+    _preferences.putFloat("longitude", config.longitude);
+    _preferences.putString("timeZone", config.timeZone.c_str());
 
     _preferences.end(); // Ferme l'accès aux préférences
 
@@ -53,6 +50,9 @@ Config ConfigManager::loadConfig()
     config.shellyEmChannel = _preferences.getString("shellyEmChannel", "").c_str();
     config.boilerMode = _preferences.getString("boilerMode", "Auto").c_str();
     config.boilerTemperature = _preferences.getInt("boilTemp", 50);
+    config.latitude = _preferences.getFloat("latitude", 48.8566);  // Paris par défaut
+    config.longitude = _preferences.getFloat("longitude", 2.3522); // Paris par défaut
+    config.timeZone = _preferences.getString("timeZone", "Europe/Paris").c_str();
     _preferences.end();
 
     return config; // Retourne l'objet de configuration

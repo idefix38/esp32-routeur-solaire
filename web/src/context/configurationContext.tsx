@@ -38,6 +38,13 @@ export interface boilerConfig {
 }
 
 
+export interface solarConfig {
+    latitude : number;
+    longitude : number; 
+    timeZone : string;   
+}
+
+
 /**
  *  Paramètres de configuration
  */
@@ -46,6 +53,7 @@ export interface config {
     mqtt: mqttConfig;
     shellyEm: shellyEmConfig;
     boiler: boilerConfig;
+    solar: solarConfig;
 }
 
 

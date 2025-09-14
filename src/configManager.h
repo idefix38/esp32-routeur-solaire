@@ -18,6 +18,9 @@ struct Config
     std::string shellyEmChannel; // Channel du module Shelly EM
     std::string boilerMode;      // Auto, On ou Off ( Auto = Routeur Solaire, On = Chauffe eau en marche forcé , Off = Chauffe à l'arret )
     int boilerTemperature;       // Température cible du chauffe eau
+    float latitude;              // Latitude
+    float longitude;             // Longitude
+    std::string timeZone;        // TimeZone
 };
 
 class ConfigManager

@@ -67,7 +67,7 @@ void signalProcessingTask(void *pvParameters)
         else if (mode == "Auto" || mode == "auto")
         {
             // Toutes les 1 seconde, lecture de la puissance consommée
-            if ((now - lastShellyTime) > 1000)
+            if (shelly != nullptr && (now - lastShellyTime) > 1000)
             {
                 // Determine si on est entre le lever et le coucher du soleil
                 struct tm localNow;
@@ -185,6 +185,9 @@ void setup()
     doc["shellyEmChannel"] = config.shellyEmChannel;
     doc["boilerMode"] = config.boilerMode;
     doc["boilerTemperature"] = config.boilerTemperature;
+    doc["latitude"] = config.latitude;
+    doc["longitude"] = config.longitude;
+
     String jsonConfig;
     serializeJsonPretty(doc, jsonConfig);
     Serial.println("--------- Configuration chargée ---------");

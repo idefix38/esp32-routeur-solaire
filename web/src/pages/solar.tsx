@@ -1,7 +1,7 @@
 import { pagePros } from '../app';
 import { useToast } from '../context/ToastContext';
 import { useEsp32Api } from '../hooks/useEsp32Api';
-import { boilerConfig, shellyEmConfig, useConfig } from '../context/configurationContext';
+import { boilerConfig, shellyEmConfig, solarConfig, useConfig } from '../context/configurationContext';
 import SolarForm from '../component/solarForm';
 
 
@@ -18,11 +18,11 @@ export default function SolarPage(props: pagePros) {
   
 
   // Handles the form submission for Solar settings.
-  const handleSolarSubmit = async (boilerSettings?: boilerConfig, shellyEmSettings?: shellyEmConfig) => {
+  const handleSolarSubmit = async (boilerSettings?: boilerConfig, shellyEmSettings?: shellyEmConfig , solarSetting? : solarConfig) => {
     const result = await callApi('/saveSolarSettings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({...boilerSettings, ...shellyEmSettings})
+      body: JSON.stringify({...boilerSettings, ...shellyEmSettings, ...solarSetting})
     });
     if (result.success) {
       setToast({message: 'Paramètres du routeur solaire enregistrés avec succès', type: 'success'});
@@ -39,7 +39,7 @@ export default function SolarPage(props: pagePros) {
         </div>
         <div className="px-4 py-5 sm:p-6 bg-gray-100">
           <div className={(loading) ? 'pointer-events-none opacity-50 relative' : ''}>
-            <SolarForm onSubmit={handleSolarSubmit} loading={loading} boilerSettings={config.value?.boiler} shellyEmSettings={config.value?.shellyEm} />
+            <SolarForm onSubmit={handleSolarSubmit} loading={loading} boilerSettings={config.value?.boiler} shellyEmSettings={config.value?.shellyEm}  solarSettings={config.value?.solar}/>
             {(loading) && (
               <div className="absolute inset-0 flex items-center justify-center z-10">
                 <span className="text-indigo-600 font-semibold text-lg animate-pulse">Chargement...</span>

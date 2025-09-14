@@ -44,12 +44,6 @@ private:
     volatile unsigned long lastZeroCross;
     void handleTimer();
     void handleZeroCross();
-    static int dayOfYear(int day, int month, int year);
-    static time_t my_timegm(struct tm *tm);
-    /**
-     * @brief Convertit des minutes UTC en struct tm locale
-     */
-    // static tm *convertUtcMinutesToLocal(double utcMinutes, const struct tm &now);
 };
 
 #endif

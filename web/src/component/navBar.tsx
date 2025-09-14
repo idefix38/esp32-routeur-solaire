@@ -1,8 +1,11 @@
-import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react'
+import { Disclosure, DisclosureButton, DisclosurePanel, Popover } from '@headlessui/react'
 import { Menu, X } from 'lucide-react'
 import { useLocation } from 'preact-iso';
 import { routes } from '../routes';
 import styles from './navBar.module.scss';
+import { CirclePower } from 'lucide-react';
+import { useEsp32Api } from '../hooks/useEsp32Api';
+import { useToast } from '../context/ToastContext';
 
 function classNames(...classes: any[]) {
   return classes.filter(Boolean).join(' ')
@@ -10,7 +13,9 @@ function classNames(...classes: any[]) {
 
 export const Navbar = () => {
   const { path } = useLocation();
-  console.debug("Path: " + path);
+  const { setToast } = useToast();  
+  const {callApi, loading} = useEsp32Api();
+
 
   return (
     <Disclosure as="nav" className={styles.navbar}>
@@ -25,7 +30,17 @@ export const Navbar = () => {
               <X aria-hidden="true" className="hidden size-6 group-data-[open]:block" />
             </DisclosureButton>
           </div>
+          {/* Logo: centered on mobile, left on desktop */}
+          <div className="absolute left-1/2 transform -translate-x-1/2 sm:hidden">
+            <a href="/">
+              <img src="/solar.svg" alt="Solar logo" className="h-12 w-auto" />
+            </a>
+          </div>
           <div className="flex flex-1 items-center justify-center sm:items-stretch sm:justify-start">
+            {/* Desktop logo on the left (hidden on mobile) */}
+            <a href="/" className="hidden sm:flex items-center mr-4">
+              <img src="/solar.svg" alt="Solar logo" className="h-12 w-auto" />
+            </a>
             <div className="hidden sm:ml-6 sm:block">
               <div className="flex space-x-4">
                 {routes.map((item) => (
@@ -46,6 +61,31 @@ export const Navbar = () => {
                 ))}
               </div>
             </div>
+          </div>          
+          <div className="absolute inset-y-0 right-0 flex items-center pr-2">
+            <Popover className="relative">
+              <Popover.Button className="h-full flex items-center rounded-md p-0 text-sm font-medium text-gray-300 hover:bg-indigo-800 hover:text-white focus:outline-none">
+                <CirclePower className="size-6" aria-hidden="true" />
+              </Popover.Button>
+              <Popover.Panel className="absolute right-0 top-full mt-2 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                <div className="py-1">
+                  <button
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                      onClick={async () => {
+                        const result = await callApi("/reboot", { method: "POST" });
+                        if (result.success) {
+                        setToast({ message: 'Redemarrage en cours...', type: 'success' });      
+                        } else {
+                        setToast({ message: 'Erreur impossible de redémarrer le routeur', type: 'error' }); 
+                        }
+                      }}
+                      disabled={loading}
+                    >
+                      Avec le menu redemarrer
+                    </button>
+                </div>
+              </Popover.Panel>
+            </Popover>
           </div>
         </div>
       </div>

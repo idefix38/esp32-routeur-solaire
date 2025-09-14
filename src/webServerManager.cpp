@@ -32,6 +32,11 @@ void WebServerManager::handleGetConfig(AsyncWebServerRequest *request)
     boilerObj["mode"] = config.boilerMode;
     boilerObj["temperature"] = config.boilerTemperature;
 
+    JsonObject solarObj = doc["solar"].to<JsonObject>();
+    solarObj["latitude"] = config.latitude;
+    solarObj["longitude"] = config.longitude;
+    solarObj["timeZone"] = config.timeZone;
+
     String jsonString;
     serializeJson(doc, jsonString);
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", jsonString);
