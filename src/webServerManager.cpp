@@ -132,6 +132,9 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
     const char *shellyEmChannel = doc["channel"] | "";
     const char *boilerMode = doc["mode"] | "Auto";
     int temperature = doc["temperature"] | 50;
+    float latitude = doc["latitude"] | 48.8566;
+    float longitude = doc["longitude"] | 2.3522;
+    const char *timeZone = doc["timeZone"] | "Europe/Paris";
 
     if (strlen(shellyEmIp) == 0 || strlen(shellyEmChannel) == 0)
     {
@@ -145,6 +148,9 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
     configTmp.shellyEmChannel = shellyEmChannel;
     configTmp.boilerMode = boilerMode;
     configTmp.boilerTemperature = temperature;
+    configTmp.boilerTemperature = latitude;
+    configTmp.boilerTemperature = longitude;
+    configTmp.timeZone = timeZone;
     this->configManager.saveConfig(configTmp);
 
     // Met à jour la variable globale config pour prise en compte immédiate dans loop()
