@@ -148,8 +148,8 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
     configTmp.shellyEmChannel = shellyEmChannel;
     configTmp.boilerMode = boilerMode;
     configTmp.boilerTemperature = temperature;
-    configTmp.boilerTemperature = latitude;
-    configTmp.boilerTemperature = longitude;
+    configTmp.latitude = latitude;
+    configTmp.longitude = longitude;
     configTmp.timeZone = timeZone;
     this->configManager.saveConfig(configTmp);
 
@@ -163,77 +163,60 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
     request->send(200, "application/json", "{\"status\":\"success\"}");
 }
 
+void WebServerManager::addFileRoutes(File dir) {
+    while (File file = dir.openNextFile()) {
+        if (file.isDirectory()) {
+            addFileRoutes(file);
+        } else {
+            String filePath = String(file.path());
+            String contentType = getContentType(filePath);
+            server.on(filePath.c_str(), HTTP_GET, [this, filePath, contentType](AsyncWebServerRequest *request) {
+                request->send(LittleFS, filePath, contentType);
+            });
+            Serial.print("  -> Route créée pour : ");
+            Serial.print(filePath);
+            Serial.print(" | Type : ");
+            Serial.println(contentType);
+        }
+    }
+}
+
 void WebServerManager::setupLocalWeb()
 {
+    Serial.println("[-] Configuration des routes dynamiques depuis LittleFS ...");
+    File root = LittleFS.open("/");
+    addFileRoutes(root);
 
-    // Ouvre le répertoire racine de SPIFFS
-    File root = SPIFFS.open("/");
-    if (!root)
-    {
-        Serial.println("Erreur à l'ouverture du répertoire racine de SPIFFS");
-        return;
-    }
-    Serial.println("[-] Configuration des routes dynamiques depuis SPIFFS...");
-    File file = root.openNextFile();
-
-    // Itère sur chaque fichier du répertoire
-    while (file)
-    {
-        // Construit le chemin complet du fichier
-        String filePath = String(file.name());
-        if (!filePath.startsWith("/"))
-        {
-            filePath = "/" + filePath;
-        }
-
-        // Détermine le type de contenu (MIME)
-        String contentType = getContentType(filePath);
-
-        // Crée une route pour servir ce fichier
-        // On capture les variables filePath et contentType par valeur pour la fonction lambda
-        server.on(filePath.c_str(), HTTP_GET, [filePath, contentType](AsyncWebServerRequest *request)
-                  { request->send(SPIFFS, filePath, contentType); });
-
-        Serial.print("  -> Route créée pour : ");
-        Serial.print(filePath);
-        Serial.print(" | Type : ");
-        Serial.println(contentType);
-
-        file.close();
-        file = root.openNextFile();
-    }
-    root.close();
     // HTML routes
     // Route principale qui sert le fichier index.html
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/index.html", "text/html"); });
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) 
+              { request->send(LittleFS, "/index.html", "text/html"); });
 
     // L'Erreur 404 est géré par l'application Réact, on renvoi toujour index.html
-    server.onNotFound([](AsyncWebServerRequest *request)
-                      { request->send(SPIFFS, "/index.html", "text/html"); });
+    server.onNotFound([](AsyncWebServerRequest *request) 
+                      { request->send(LittleFS, "/index.html", "text/html"); });
 
-    server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
     Serial.println("[-] Serveur Web Ok");
 }
 
 void WebServerManager::setupApiRoutes()
 {
     // API routes
-    server.on("/saveWifiSettings", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
+    server.on("/saveWifiSettings", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) 
               { handleSaveWifiSettings(request, data, len); });
 
-    server.on("/saveMqttSettings", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
+    server.on("/saveMqttSettings", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) 
               { handleSaveMqttSettings(request, data, len); });
-    server.on("/saveSolarSettings", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
+    server.on("/saveSolarSettings", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) 
               { handleSaveSolarSettings(request, data, len); });
 
-    server.on("/getData", HTTP_GET, [](AsyncWebServerRequest *request)
+    server.on("/getData", HTTP_GET, [](AsyncWebServerRequest *request) 
               {
                       extern volatile float lastTemperature;
                       extern volatile float triacOpeningPercentage;
                       request->send(200, "application/json", "{\"temperature\":\"" + String(lastTemperature) + "\", \"triacOpeningPercentage\":\"" + String(triacOpeningPercentage) + "\"}"); });
 
-    server.on("/getConfig", HTTP_GET, [this](AsyncWebServerRequest *request)
+    server.on("/getConfig", HTTP_GET, [this](AsyncWebServerRequest *request) 
               { handleGetConfig(request); });
 }
 

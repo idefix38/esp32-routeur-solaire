@@ -1,9 +1,20 @@
-#include <iostream>
-#include <string>
-#include <map>
+#include <Arduino.h> // Pour l'environnement ESP32
+#include <string.h>  // Pour la fonction strcmp()
 
-// Définir la map en tant que constante globale
-const std::map<std::string, std::string> POSIX_TIMEZONES = {
+// Définir la structure pour une paire clé/valeur
+struct PosixTimezone
+{
+    const char *key;
+    const char *value;
+};
+
+// ---
+// Définir le tableau de constantes
+// Toutes ces données sont stockées en mémoire flash (PROGMEM)
+// ce qui économise de la RAM précieuse.
+// ---
+
+const PosixTimezone POSIX_TIMEZONES[] = {
     {"Africa/Abidjan", "GMT0"},
     {"Africa/Accra", "GMT0"},
     {"Africa/Addis_Ababa", "EAT-3"},
@@ -321,41 +332,6 @@ const std::map<std::string, std::string> POSIX_TIMEZONES = {
     {"Australia/Melbourne", "AEST-10AEDT,M10.1.0,M4.1.0/3"},
     {"Australia/Perth", "AWST-8"},
     {"Australia/Sydney", "AEST-10AEDT,M10.1.0,M4.1.0/3"},
-    {"Etc/GMT", "GMT0"},
-    {"Etc/GMT+0", "GMT0"},
-    {"Etc/GMT+1", "<-01>1"},
-    {"Etc/GMT+10", "<-10>10"},
-    {"Etc/GMT+11", "<-11>11"},
-    {"Etc/GMT+12", "<-12>12"},
-    {"Etc/GMT+2", "<-02>2"},
-    {"Etc/GMT+3", "<-03>3"},
-    {"Etc/GMT+4", "<-04>4"},
-    {"Etc/GMT+5", "<-05>5"},
-    {"Etc/GMT+6", "<-06>6"},
-    {"Etc/GMT+7", "<-07>7"},
-    {"Etc/GMT+8", "<-08>8"},
-    {"Etc/GMT+9", "<-09>9"},
-    {"Etc/GMT-0", "GMT0"},
-    {"Etc/GMT-1", "<+01>-1"},
-    {"Etc/GMT-10", "<+10>-10"},
-    {"Etc/GMT-11", "<+11>-11"},
-    {"Etc/GMT-12", "<+12>-12"},
-    {"Etc/GMT-13", "<+13>-13"},
-    {"Etc/GMT-14", "<+14>-14"},
-    {"Etc/GMT-2", "<+02>-2"},
-    {"Etc/GMT-3", "<+03>-3"},
-    {"Etc/GMT-4", "<+04>-4"},
-    {"Etc/GMT-5", "<+05>-5"},
-    {"Etc/GMT-6", "<+06>-6"},
-    {"Etc/GMT-7", "<+07>-7"},
-    {"Etc/GMT-8", "<+08>-8"},
-    {"Etc/GMT-9", "<+09>-9"},
-    {"Etc/GMT0", "GMT0"},
-    {"Etc/Greenwich", "GMT0"},
-    {"Etc/UCT", "UTC0"},
-    {"Etc/UTC", "UTC0"},
-    {"Etc/Universal", "UTC0"},
-    {"Etc/Zulu", "UTC0"},
     {"Europe/Amsterdam", "CET-1CEST,M3.5.0,M10.5.0/3"},
     {"Europe/Andorra", "CET-1CEST,M3.5.0,M10.5.0/3"},
     {"Europe/Astrakhan", "<+04>-4"},
@@ -466,14 +442,22 @@ const std::map<std::string, std::string> POSIX_TIMEZONES = {
     {"Pacific/Wake", "<+12>-12"},
     {"Pacific/Wallis", "<+12>-12"}};
 
+// Obtenir la taille du tableau
+const size_t NUM_TIMEZONES = sizeof(POSIX_TIMEZONES) / sizeof(POSIX_TIMEZONES[0]);
+
 // Fonction pour rechercher le fuseau horaire
-const std::string &getPosixTimezone(const std::string &timezoneName)
+const char *getPosixTimezone(const char *timezoneName)
 {
-    auto it = POSIX_TIMEZONES.find(timezoneName);
-    if (it != POSIX_TIMEZONES.end())
+    // Parcourir le tableau pour trouver la correspondance
+    for (size_t i = 0; i < NUM_TIMEZONES; ++i)
     {
-        return it->second;
+        if (strcmp(POSIX_TIMEZONES[i].key, timezoneName) == 0)
+        {
+            return POSIX_TIMEZONES[i].value;
+        }
     }
-    // Gérer le cas où le fuseau horaire n'est pas trouvé
+    // Si la clé n'est pas trouvée, retourner la valeur pour Europe/Paris
+    // On doit d'abord la trouver dans le tableau pour la retourner.
+    // Cette partie est moins optimisée, mais elle est plus claire.
     return getPosixTimezone("Europe/Paris");
 }

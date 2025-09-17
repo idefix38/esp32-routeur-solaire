@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "WifiManager.h"
 #include "MqttManager.h"
-#include "TemSpiffs.h"
+#include "files.h"
 #include "webserverManager.h"
 #include "sensor.h"
 #include "configManager.h"
@@ -20,17 +20,17 @@
 #define pinTemperature 4
 
 // Task Handles
-// TaskHandle_t CommunicationTaskHandle;
-// TaskHandle_t SignalProcessingTaskHandle;
+TaskHandle_t CommunicationTaskHandle;
+TaskHandle_t SignalProcessingTaskHandle;
 
-// // Global Objects
-// ConfigManager configManager;
-// Config config;
-// WifiManager wifiManager;
-// MqttManager mqttManager(configManager);
-// WebServerManager web(configManager, mqttManager);
-// ShellyEm *shelly = nullptr;
-// SolarManager *solarManager = nullptr;
+// Global Objects
+ConfigManager configManager;
+Config config;
+WifiManager wifiManager;
+MqttManager mqttManager(configManager);
+WebServerManager web(configManager, mqttManager);
+ShellyEm *shelly = nullptr;
+SolarManager *solarManager = nullptr;
 
 // Shared Data
 volatile float lastTemperature = 0;
@@ -40,264 +40,261 @@ volatile float lastPower = 0;
 // Mutex for thread-safe operations
 SemaphoreHandle_t configMutex;
 
-// // Task for Signal Processing (Core 0)
-// void signalProcessingTask(void *pvParameters)
-// {
-//     Serial.println("Signal Processing Task started on core 0");
-//     static unsigned long lastShellyTime = 0;
+// Task for Signal Processing (Core 0)
+void signalProcessingTask(void *pvParameters)
+{
+    Serial.println("Signal Processing Task started on core 0");
+    static unsigned long lastShellyTime = 0;
 
-//     for (;;)
-//     {
-//         unsigned long now = millis();
+    for (;;)
+    {
+        unsigned long now = millis();
 
-//         xSemaphoreTake(configMutex, portMAX_DELAY);
-//         std::string mode = config.boilerMode;
-//         int boilerTemperature = config.boilerTemperature;
-//         xSemaphoreGive(configMutex);
+        xSemaphoreTake(configMutex, portMAX_DELAY);
+        std::string mode = config.boilerMode;
+        int boilerTemperature = config.boilerTemperature;
+        xSemaphoreGive(configMutex);
 
-//         if (lastTemperature > boilerTemperature)
-//         {
-//             // Le chauffe eau est chaud, pas de regulation
-//             solarManager->Off();
-//             triacOpeningPercentage = 0;
-//         }
-//         else if (mode == "Auto" || mode == "auto")
-//         {
-//             // Toutes les 1 seconde, lecture de la puissance consommée
-//             if (shelly != nullptr && (now - lastShellyTime) > 1000)
-//             {
-//                 // Determine si on est entre le lever et le coucher du soleil
-//                 struct tm localNow;
-//                 // if (getLocalTime(&localNow))
-//                 // {
-//                 //     struct tm sunrise = solarManager->calculateSunrise(config.latitude, config.longitude);
-//                 //     struct tm sunset = solarManager->calculateSunset(config.latitude, config.longitude);
+        if (lastTemperature > config.boilerTemperature)
+        {
+            // Le chauffe eau est chaud, pas de regulation
+            solarManager->Off();
+            triacOpeningPercentage = 0;
+        }
+        else if (mode == "Auto" || mode == "auto")
+        {
+            // Toutes les 1 seconde, lecture de la puissance consommée
+            if (shelly != nullptr && (now - lastShellyTime) > 1000)
+            {
+                // Determine si on est entre le lever et le coucher du soleil
+                struct tm localNow;
+                if (getLocalTime(&localNow))
+                {
+                    struct tm sunrise = solarManager->calculateSunrise(config.latitude, config.longitude);
+                    struct tm sunset = solarManager->calculateSunset(config.latitude, config.longitude);
 
-//                 //     int nowMinutes = localNow.tm_hour * 60 + localNow.tm_min;
-//                 //     int sunriseMinutes = sunrise.tm_hour * 60 + sunrise.tm_min;
-//                 //     int sunsetMinutes = sunset.tm_hour * 60 + sunset.tm_min;
+                    int nowMinutes = localNow.tm_hour * 60 + localNow.tm_min;
+                    int sunriseMinutes = sunrise.tm_hour * 60 + sunrise.tm_min;
+                    int sunsetMinutes = sunset.tm_hour * 60 + sunset.tm_min;
 
-//                 //     // On est bien entre le lever et le coucher du soleil
-//                 //     if (nowMinutes >= sunriseMinutes && nowMinutes <= sunsetMinutes)
-//                 //     {
-//                 //         lastPower = shelly->getPower();
-//                 //         Serial.print("[ShellyEM] Puissance: ");
-//                 //         Serial.println(lastPower);
-//                 //         triacOpeningPercentage = solarManager->updateRegulation(lastPower);
-//                 //     }
-//                 // }
+                    // On est bien entre le lever et le coucher du soleil
+                    if (nowMinutes >= sunriseMinutes && nowMinutes <= sunsetMinutes)
+                    {
+                        lastPower = shelly->getPower();
+                        Serial.print("[ShellyEM] Puissance: ");
+                        Serial.println(lastPower);
+                        triacOpeningPercentage = solarManager->updateRegulation(lastPower);
+                    }
+                    else
+                    {
+                        Serial.println("[-]   C'est la nuit");
+                    }
+                }
 
-//                 lastPower = shelly->getPower();
-//                 Serial.print("[ShellyEM] Puissance: ");
-//                 Serial.println(lastPower);
-//                 triacOpeningPercentage = solarManager->updateRegulation(lastPower);
+                // keep throttle timing regardless of whether we read or not
+                lastShellyTime = now;
+            }
+        }
+        else if (mode == "On" || mode == "on")
+        {
+            // Mode "Marche Forcé"
+            solarManager->On();
+            triacOpeningPercentage = 100;
+        }
+        else if (mode == "Off" || mode == "off")
+        {
+            // Mode "Arret Forcé"
+            solarManager->Off();
+            triacOpeningPercentage = 0;
+        }
 
-//                 // keep throttle timing regardless of whether we read or not
-//                 lastShellyTime = now;
-//             }
-//         }
-//         else if (mode == "On" || mode == "on")
-//         {
-//             // Mode "Marche Forcé"
-//             solarManager->On();
-//             triacOpeningPercentage = 100;
-//         }
-//         else if (mode == "Off" || mode == "off")
-//         {
-//             // Mode "Arret Forcé"
-//             solarManager->Off();
-//             triacOpeningPercentage = 0;
-//         }
+        // Delay to prevent task from hogging the CPU
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
 
-//         // Delay to prevent task from hogging the CPU
-//         vTaskDelay(pdMS_TO_TICKS(10));
-//     }
-// }
+// Task for Communication (Core 1)
+void communicationTask(void *pvParameters)
+{
+    Serial.println("Communication Task started on core 1");
+    static unsigned long lastDiscoveryTime = 0;
+    static unsigned long lastTempTime = 0;
 
-// // Task for Communication (Core 1)
-// void communicationTask(void *pvParameters)
-// {
-//     Serial.println("Communication Task started on core 1");
-//     static unsigned long lastDiscoveryTime = 0;
-//     static unsigned long lastTempTime = 0;
+    for (;;)
+    {
+        unsigned long now = millis();
 
-//     for (;;)
-//     {
-//         unsigned long now = millis();
+        xSemaphoreTake(configMutex, portMAX_DELAY);
+        std::string mqttServer = config.mqttServer;
+        xSemaphoreGive(configMutex);
 
-//         xSemaphoreTake(configMutex, portMAX_DELAY);
-//         std::string mqttServer = config.mqttServer;
-//         xSemaphoreGive(configMutex);
+        if (!mqttServer.empty())
+        {
+            if (!mqttManager.isConnected())
+            {
+                mqttManager.connect(1);
+            }
+            mqttManager.loop();
 
-//         if (!mqttServer.empty())
-//         {
-//             if (!mqttManager.isConnected())
-//             {
-//                 mqttManager.connect(1);
-//             }
-//             mqttManager.loop();
+            // Envoi du SendDiscovery à Home Assistant
+            if (now - lastDiscoveryTime > 5 * 60 * 1000)
+            {
+                mqttManager.sendDiscovery();
+                lastDiscoveryTime = now;
+            }
 
-//             // Envoi du SendDiscovery à Home Assistant
-//             if (now - lastDiscoveryTime > 5 * 60 * 1000)
-//             {
-//                 mqttManager.sendDiscovery();
-//                 lastDiscoveryTime = now;
-//             }
+            if (now - lastTempTime > 5000)
+            {
+                lastTemperature = getTemperature();
+                mqttManager.sendData(lastTemperature, triacOpeningPercentage);
+                lastTempTime = now;
+            }
+        }
 
-//             if (now - lastTempTime > 5000)
-//             {
-//                 lastTemperature = getTemperature();
-//                 mqttManager.sendData(lastTemperature, triacOpeningPercentage);
-//                 lastTempTime = now;
-//             }
-//         }
+        // The web server logic (especially if async) handles its own connections.
+        // No explicit web.loop() is needed if using ESPAsyncWebServer.
 
-//         // The web server logic (especially if async) handles its own connections.
-//         // No explicit web.loop() is needed if using ESPAsyncWebServer.
-
-//         // Delay to yield to other tasks, if any, on the same core
-//         vTaskDelay(pdMS_TO_TICKS(10));
-//     }
-// }
+        // Delay to yield to other tasks, if any, on the same core
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
 
 void setup()
 {
-
-    Serial.println("--------- Setup Start ---------");
     Serial.begin(115200);
 
-    // // Create Mutex
-    // configMutex = xSemaphoreCreateMutex();
+    // Create Mutex
+    configMutex = xSemaphoreCreateMutex();
 
-    // // Pin initialization
-    // pinMode(pinLedYellow, OUTPUT);
-    // pinMode(pinLedGreen, OUTPUT);
-    // digitalWrite(pinLedYellow, LOW);
-    // digitalWrite(pinLedGreen, LOW);
+    // Pin initialization
+    pinMode(pinLedYellow, OUTPUT);
+    pinMode(pinLedGreen, OUTPUT);
+    digitalWrite(pinLedYellow, LOW);
+    digitalWrite(pinLedGreen, LOW);
 
-    // // Load configuration
-    // config = configManager.loadConfig();
+    // Load configuration
+    config = configManager.loadConfig();
 
-    // // Log config
-    // JsonDocument doc;
-    // doc["wifiSSID"] = config.wifiSSID;
-    // doc["mqttServer"] = config.mqttServer;
-    // doc["mqttPort"] = config.mqttPort;
-    // doc["mqttUsername"] = config.mqttUsername;
-    // doc["mqttTopic"] = config.mqttTopic;
-    // doc["shellyEmIp"] = config.shellyEmIp;
-    // doc["shellyEmChannel"] = config.shellyEmChannel;
-    // doc["boilerMode"] = config.boilerMode;
-    // doc["boilerTemperature"] = config.boilerTemperature;
-    // doc["latitude"] = config.latitude;
-    // doc["longitude"] = config.longitude;
-    // doc["timeZone"] = config.timeZone;
+    // Log config
+    JsonDocument doc;
+    doc["wifiSSID"] = config.wifiSSID;
+    doc["mqttServer"] = config.mqttServer;
+    doc["mqttPort"] = config.mqttPort;
+    doc["mqttUsername"] = config.mqttUsername;
+    doc["mqttTopic"] = config.mqttTopic;
+    doc["shellyEmIp"] = config.shellyEmIp;
+    doc["shellyEmChannel"] = config.shellyEmChannel;
+    doc["boilerMode"] = config.boilerMode;
+    doc["boilerTemperature"] = config.boilerTemperature;
+    doc["latitude"] = config.latitude;
+    doc["longitude"] = config.longitude;
+    doc["timezone"] = config.timeZone;
 
-    // String jsonConfig;
-    // serializeJsonPretty(doc, jsonConfig);
-    // Serial.println("--------- Configuration chargée ---------");
-    // Serial.println(jsonConfig);
-    // Serial.println("------------------------------------");
+    String jsonConfig;
+    serializeJsonPretty(doc, jsonConfig);
+    Serial.println("--------- Configuration chargée ---------");
+    Serial.println(jsonConfig);
+    Serial.println("------------------------------------");
 
-    // // Setup WiFi
-    // wifiManager.setupAccessPoint("ESP32_WROOM_SOLAR_ROUTER");
-    // wifiManager.connect(config.wifiSSID.c_str(), config.wifiPassword.c_str(), 5);
+    // Setup WiFi
+    wifiManager.setupAccessPoint("ESP32_WROOM_SOLAR_ROUTER");
+    wifiManager.connect(config.wifiSSID.c_str(), config.wifiPassword.c_str(), 5);
 
-    // // Setup SPIFFS
-    // setupSpiffs();
+    // Setup LittleFS
+    setupSpiffs();
 
-    // // Setup Web Server
-    // web.startServer();
+    // Setup Web Server
+    web.startServer();
 
-    // // Setup Sensor
-    // setupSensor();
+    // Setup Sensor
+    setupSensor();
 
-    // // Setup Shelly
-    // if (config.shellyEmIp != "")
-    // {
-    //     shelly = new ShellyEm(String(config.shellyEmIp.c_str()), String(config.shellyEmChannel.c_str()));
-    // }
+    // Setup Shelly
+    if (config.shellyEmIp != "")
+    {
+        shelly = new ShellyEm(String(config.shellyEmIp.c_str()), String(config.shellyEmChannel.c_str()));
+    }
 
-    // // Setup Solar Manager
-    // solarManager = new SolarManager(pinPulseTriac, pinZeroCross);
-    // solarManager->begin();
+    // Setup Solar Manager
+    solarManager = new SolarManager(pinPulseTriac, pinZeroCross);
+    solarManager->begin();
 
-    // // Synchronize time with NTP server for Paris timezone
-    // Serial.println("[-] Synchronisation Date/Heure NTP server time.google.com");
-    // configTzTime(getPosixTimezone(config.timeZone.c_str()).c_str(), "time.google.com");
+    // Synchronize time with NTP server for Paris timezone
+    Serial.println("[-] Synchronisation Date/Heure NTP server time.google.com");
+    configTzTime(getPosixTimezone(config.timeZone.c_str()), "time.google.com");
 
-    // // Récupère la date et l'heure locale
-    // struct tm timeinfo_local;
-    // if (getLocalTime(&timeinfo_local))
-    // {
-    //     char timeStr[50];
-    //     strftime(timeStr, sizeof(timeStr), "%A, %B %d %Y %H:%M:%S", &timeinfo_local);
-    //     Serial.print("    - Date/Heure locale: ");
-    //     Serial.println(timeStr);
+    // Récupère la date et l'heure locale
+    struct tm timeinfo_local;
+    if (getLocalTime(&timeinfo_local))
+    {
+        char timeStr[50];
+        strftime(timeStr, sizeof(timeStr), "%A, %B %d %Y %H:%M:%S", &timeinfo_local);
+        Serial.print("    - Date/Heure locale: ");
+        Serial.println(timeStr);
 
-    //     // Calcul lever et coucher du soleil
-    //     struct tm sunrise = solarManager->calculateSunrise(config.latitude, config.longitude);
-    //     struct tm sunset = solarManager->calculateSunset(config.latitude, config.longitude);
+        // Calcul lever et coucher du soleil
+        struct tm sunrise = solarManager->calculateSunrise(config.latitude, config.longitude);
+        struct tm sunset = solarManager->calculateSunset(config.latitude, config.longitude);
 
-    //     if (sunrise.tm_year != -1)
-    //     {
-    //         strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &sunrise);
-    //         Serial.print("    - Lever du soleil: ");
-    //         Serial.println(timeStr);
-    //     }
-    //     else
-    //     {
-    //         Serial.println("    - Lever du soleil: (erreur)");
-    //     }
+        if (sunrise.tm_year != -1)
+        {
+            strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &sunrise);
+            Serial.print("    - Lever du soleil: ");
+            Serial.println(timeStr);
+        }
+        else
+        {
+            Serial.println("    - Lever du soleil: (erreur)");
+        }
 
-    //     if (sunset.tm_year != -1)
-    //     {
-    //         strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &sunset);
-    //         Serial.print("    - Coucher du soleil: ");
-    //         Serial.println(timeStr);
-    //     }
-    //     else
-    //     {
-    //         Serial.println("    - Coucher du soleil: (erreur)");
-    //     }
-    // }
+        if (sunset.tm_year != -1)
+        {
+            strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &sunset);
+            Serial.print("    - Coucher du soleil: ");
+            Serial.println(timeStr);
+        }
+        else
+        {
+            Serial.println("    - Coucher du soleil: (erreur)");
+        }
+    }
 
-    // // Setup MQTT
-    // if (config.mqttServer != "")
-    // {
-    //     mqttManager.setup(config.mqttServer.c_str(), config.mqttPort, config.mqttUsername.c_str(), config.mqttPassword.c_str(), config.mqttTopic.c_str());
-    // }
+    // Setup MQTT
+    if (config.mqttServer != "")
+    {
+        mqttManager.setup(config.mqttServer.c_str(), config.mqttPort, config.mqttUsername.c_str(), config.mqttPassword.c_str(), config.mqttTopic.c_str());
+    }
 
-    // // Interrupts (should be safe, they are short)
-    // attachInterrupt(digitalPinToInterrupt(pinZeroCross), SolarManager::onZeroCrossStatic, RISING);
+    // Interrupts (should be safe, they are short)
+    attachInterrupt(digitalPinToInterrupt(pinZeroCross), SolarManager::onZeroCrossStatic, RISING);
 
-    // hw_timer_t *timer = timerBegin(0, 80, true);
-    // timerAttachInterrupt(timer, &SolarManager::onTimerStatic, true);
-    // timerAlarmWrite(timer, 100, true);
-    // timerAlarmEnable(timer);
+    hw_timer_t *timer = timerBegin(0, 80, true);
+    timerAttachInterrupt(timer, &SolarManager::onTimerStatic, true);
+    timerAlarmWrite(timer, 100, true);
+    timerAlarmEnable(timer);
 
-    // // Create tasks
-    // xTaskCreatePinnedToCore(
-    //     signalProcessingTask,        // Task function
-    //     "SignalProcessingTask",      // Name of the task
-    //     10000,                       // Stack size of task
-    //     NULL,                        // Parameter of the task
-    //     1,                           // Priority of the task
-    //     &SignalProcessingTaskHandle, // Task handle to keep track of created task
-    //     0);                          // Pin task to core 0
+    // Create tasks
+    xTaskCreatePinnedToCore(
+        signalProcessingTask,        // Task function
+        "SignalProcessingTask",      // Name of the task
+        10000,                       // Stack size of task
+        NULL,                        // Parameter of the task
+        1,                           // Priority of the task
+        &SignalProcessingTaskHandle, // Task handle to keep track of created task
+        0);                          // Pin task to core 0
 
-    // xTaskCreatePinnedToCore(
-    //     communicationTask,        // Task function
-    //     "CommunicationTask",      // Name of the task
-    //     10000,                    // Stack size of task
-    //     NULL,                     // Parameter of the task
-    //     1,                        // Priority of the task
-    //     &CommunicationTaskHandle, // Task handle to keep track of created task
-    //     1);                       // Pin task to core 1
+    xTaskCreatePinnedToCore(
+        communicationTask,        // Task function
+        "CommunicationTask",      // Name of the task
+        10000,                    // Stack size of task
+        NULL,                     // Parameter of the task
+        1,                        // Priority of the task
+        &CommunicationTaskHandle, // Task handle to keep track of created task
+        1);                       // Pin task to core 1
 }
 
 void loop()
 {
     // Empty. Everything is handled in tasks.
-    // vTaskDelete(NULL); // Delete the loop task
+    vTaskDelete(NULL); // Delete the loop task
 }
