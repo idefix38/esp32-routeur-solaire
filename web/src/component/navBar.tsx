@@ -64,27 +64,32 @@ export const Navbar = () => {
           </div>          
           <div className="absolute inset-y-0 right-0 flex items-center pr-2">
             <Popover className="relative">
-              <Popover.Button className="h-full flex items-center rounded-md p-0 text-sm font-medium text-gray-300 hover:bg-indigo-800 hover:text-white focus:outline-none">
-                <CirclePower className="size-6" aria-hidden="true" />
-              </Popover.Button>
-              <Popover.Panel className="absolute right-0 top-full mt-2 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
-                <div className="py-1">
-                  <button
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-                      onClick={async () => {
-                        const result = await callApi("/reboot", { method: "POST" });
-                        if (result.success) {
-                        setToast({ message: 'Redemarrage en cours...', type: 'success' });      
-                        } else {
-                        setToast({ message: 'Erreur impossible de redémarrer le routeur', type: 'error' }); 
-                        }
-                      }}
-                      disabled={loading}
-                    >
-                      Avec le menu redemarrer
-                    </button>
-                </div>
-              </Popover.Panel>
+              {({ close }) => (
+                <>
+                  <Popover.Button className="h-full flex items-center rounded-md p-0 text-sm font-medium text-gray-300 hover:bg-indigo-800 hover:text-white focus:outline-none">
+                    <CirclePower className="size-6" aria-hidden="true" />
+                  </Popover.Button>
+                  <Popover.Panel className="absolute right-0 top-full mt-2 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                    <div className="py-1">
+                      <button
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                        onClick={async () => {
+                          const result = await callApi("/reboot", { method: "POST" });
+                          if (result.success) {
+                            setToast({ message: 'Redemarrage en cours...', type: 'success' });
+                          } else {
+                            setToast({ message: 'Erreur impossible de redémarrer le routeur', type: 'error' });
+                          }
+                          close(); // <-- Add this line to close the popover
+                        }}
+                        disabled={loading}
+                      >
+                        Redémarrer l'ESP32
+                      </button>
+                    </div>
+                  </Popover.Panel>
+                </>
+              )}
             </Popover>
           </div>
         </div>

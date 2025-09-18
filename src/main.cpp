@@ -33,9 +33,14 @@ ShellyEm *shelly = nullptr;
 SolarManager *solarManager = nullptr;
 
 // Shared Data
-volatile float lastTemperature = 0;
-volatile float triacOpeningPercentage = 0;
-volatile float lastPower = 0;
+volatile float lastTemperature = 0;        // Dernière température mesurée
+volatile float triacOpeningPercentage = 0; // Pourcentage d'ouverture du triac
+volatile float lastPower = 0;              // Dernière puissance mesurée
+int nowMinutes = 0;                        // Heure en minute
+int sunriseMinutes = 0;                    // Heure de lever du soleil en minute
+int sunsetMinutes = 0;                     // Heure du coucherdu soleil en minute
+bool temperatureReached = false;           // True si la température a été atteinte dans la journée
+volatile bool reboot = false;              // true si on demande à l'ESP32 un reboot
 
 // Mutex for thread-safe operations
 SemaphoreHandle_t configMutex;
@@ -55,40 +60,44 @@ void signalProcessingTask(void *pvParameters)
         int boilerTemperature = config.boilerTemperature;
         xSemaphoreGive(configMutex);
 
-        if (lastTemperature > config.boilerTemperature)
+        // Determine si on est entre le lever et le coucher du soleil
+        struct tm localNow;
+        if (getLocalTime(&localNow))
         {
-            // Le chauffe eau est chaud, pas de regulation
+            struct tm sunrise = solarManager->calculateSunrise(config.latitude, config.longitude);
+            struct tm sunset = solarManager->calculateSunset(config.latitude, config.longitude);
+
+            nowMinutes = localNow.tm_hour * 60 + localNow.tm_min;
+            sunriseMinutes = sunrise.tm_hour * 60 + sunrise.tm_min;
+            sunsetMinutes = sunset.tm_hour * 60 + sunset.tm_min;
+            if (nowMinutes < sunriseMinutes)
+            {
+                // Remise à zero de température atteinte, avant le lever du soleil
+                temperatureReached = true;
+            }
+        }
+
+        if (lastTemperature > config.boilerTemperature || temperatureReached)
+        {
+            // Le chauffe eau est chaud, plus besoin de régulation
+            // Même si la température redescent en dessous de la température de consigne,
+            // on ne relance le chauffe eau qu'après le prochain lever de soleil
             solarManager->Off();
             triacOpeningPercentage = 0;
+            temperatureReached = true;
         }
         else if (mode == "Auto" || mode == "auto")
         {
             // Toutes les 1 seconde, lecture de la puissance consommée
             if (shelly != nullptr && (now - lastShellyTime) > 1000)
             {
-                // Determine si on est entre le lever et le coucher du soleil
-                struct tm localNow;
-                if (getLocalTime(&localNow))
+                // On est bien entre le lever et le coucher du soleil
+                if (nowMinutes >= sunriseMinutes && nowMinutes <= sunsetMinutes)
                 {
-                    struct tm sunrise = solarManager->calculateSunrise(config.latitude, config.longitude);
-                    struct tm sunset = solarManager->calculateSunset(config.latitude, config.longitude);
-
-                    int nowMinutes = localNow.tm_hour * 60 + localNow.tm_min;
-                    int sunriseMinutes = sunrise.tm_hour * 60 + sunrise.tm_min;
-                    int sunsetMinutes = sunset.tm_hour * 60 + sunset.tm_min;
-
-                    // On est bien entre le lever et le coucher du soleil
-                    if (nowMinutes >= sunriseMinutes && nowMinutes <= sunsetMinutes)
-                    {
-                        lastPower = shelly->getPower();
-                        Serial.print("[ShellyEM] Puissance: ");
-                        Serial.println(lastPower);
-                        triacOpeningPercentage = solarManager->updateRegulation(lastPower);
-                    }
-                    else
-                    {
-                        Serial.println("[-]   C'est la nuit");
-                    }
+                    lastPower = shelly->getPower();
+                    Serial.print("[ShellyEM] Puissance: ");
+                    Serial.println(lastPower);
+                    triacOpeningPercentage = solarManager->updateRegulation(lastPower);
                 }
 
                 // keep throttle timing regardless of whether we read or not
@@ -128,6 +137,13 @@ void communicationTask(void *pvParameters)
         std::string mqttServer = config.mqttServer;
         xSemaphoreGive(configMutex);
 
+        if (reboot)
+        {
+            reboot = false;
+            delay(3000);
+            ESP.restart();
+        }
+
         if (!mqttServer.empty())
         {
             if (!mqttManager.isConnected())
@@ -136,7 +152,7 @@ void communicationTask(void *pvParameters)
             }
             mqttManager.loop();
 
-            // Envoi du SendDiscovery à Home Assistant
+            // Envoi du SendDiscovery à Home Assistant toutes les 5 minutes
             if (now - lastDiscoveryTime > 5 * 60 * 1000)
             {
                 mqttManager.sendDiscovery();
@@ -162,6 +178,7 @@ void communicationTask(void *pvParameters)
 void setup()
 {
     Serial.begin(115200);
+    reboot = false;
 
     // Create Mutex
     configMutex = xSemaphoreCreateMutex();
