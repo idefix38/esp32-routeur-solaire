@@ -2,7 +2,7 @@
 #define WEBSERVERMANAGER_H
 
 #include <ESPAsyncWebServer.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>
 #include <ArduinoJson.h>
 #include "sensor.h"
 #include "ConfigManager.h"
@@ -19,7 +19,9 @@ public:
     void startServer();
 
 private:
+    void addFileRoutes(File dir);
     void handleGetConfig(AsyncWebServerRequest *request);
+    void handleReboot(AsyncWebServerRequest *request);
     void addCorsHeaders(AsyncWebServerResponse *response);
     void handleSaveWifiSettings(AsyncWebServerRequest *request, uint8_t *data, size_t len);
     void handleSaveMqttSettings(AsyncWebServerRequest *request, uint8_t *data, size_t len);

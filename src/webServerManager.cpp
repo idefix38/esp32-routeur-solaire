@@ -7,6 +7,15 @@ WebServerManager::WebServerManager(ConfigManager &configManager, MqttManager &mq
 {
 }
 
+void WebServerManager::handleReboot(AsyncWebServerRequest *request)
+{
+    Serial.println(" GET: /reboot");
+    AsyncWebServerResponse *response = request->beginResponse(200, "text/html", "ok");
+    extern volatile bool reboot;
+    reboot = true;
+    request->send(response);
+}
+
 void WebServerManager::handleGetConfig(AsyncWebServerRequest *request)
 {
     Serial.println(" GET: /getConfig");
@@ -132,6 +141,9 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
     const char *shellyEmChannel = doc["channel"] | "";
     const char *boilerMode = doc["mode"] | "Auto";
     int temperature = doc["temperature"] | 50;
+    float latitude = doc["latitude"] | 48.8566;
+    float longitude = doc["longitude"] | 2.3522;
+    const char *timeZone = doc["timeZone"] | "Europe/Paris";
 
     if (strlen(shellyEmIp) == 0 || strlen(shellyEmChannel) == 0)
     {
@@ -145,6 +157,9 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
     configTmp.shellyEmChannel = shellyEmChannel;
     configTmp.boilerMode = boilerMode;
     configTmp.boilerTemperature = temperature;
+    configTmp.latitude = latitude;
+    configTmp.longitude = longitude;
+    configTmp.timeZone = timeZone;
     this->configManager.saveConfig(configTmp);
 
     // Met à jour la variable globale config pour prise en compte immédiate dans loop()
@@ -157,56 +172,43 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
     request->send(200, "application/json", "{\"status\":\"success\"}");
 }
 
+void WebServerManager::addFileRoutes(File dir)
+{
+    while (File file = dir.openNextFile())
+    {
+        if (file.isDirectory())
+        {
+            addFileRoutes(file);
+        }
+        else
+        {
+            String filePath = String(file.path());
+            String contentType = getContentType(filePath);
+            server.on(filePath.c_str(), HTTP_GET, [this, filePath, contentType](AsyncWebServerRequest *request)
+                      { request->send(LittleFS, filePath, contentType); });
+            Serial.print("  -> Route créée pour : ");
+            Serial.print(filePath);
+            Serial.print(" | Type : ");
+            Serial.println(contentType);
+        }
+    }
+}
+
 void WebServerManager::setupLocalWeb()
 {
+    Serial.println("[-] Configuration des routes dynamiques depuis LittleFS ...");
+    File root = LittleFS.open("/");
+    addFileRoutes(root);
 
-    // Ouvre le répertoire racine de SPIFFS
-    File root = SPIFFS.open("/");
-    if (!root)
-    {
-        Serial.println("Erreur à l'ouverture du répertoire racine de SPIFFS");
-        return;
-    }
-    Serial.println("[-] Configuration des routes dynamiques depuis SPIFFS...");
-    File file = root.openNextFile();
-
-    // Itère sur chaque fichier du répertoire
-    while (file)
-    {
-        // Construit le chemin complet du fichier
-        String filePath = String(file.name());
-        if (!filePath.startsWith("/"))
-        {
-            filePath = "/" + filePath;
-        }
-
-        // Détermine le type de contenu (MIME)
-        String contentType = getContentType(filePath);
-
-        // Crée une route pour servir ce fichier
-        // On capture les variables filePath et contentType par valeur pour la fonction lambda
-        server.on(filePath.c_str(), HTTP_GET, [filePath, contentType](AsyncWebServerRequest *request)
-                  { request->send(SPIFFS, filePath, contentType); });
-
-        Serial.print("  -> Route créée pour : ");
-        Serial.print(filePath);
-        Serial.print(" | Type : ");
-        Serial.println(contentType);
-
-        file.close();
-        file = root.openNextFile();
-    }
-    root.close();
     // HTML routes
     // Route principale qui sert le fichier index.html
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(SPIFFS, "/index.html", "text/html"); });
+              { request->send(LittleFS, "/index.html", "text/html"); });
 
     // L'Erreur 404 est géré par l'application Réact, on renvoi toujour index.html
     server.onNotFound([](AsyncWebServerRequest *request)
-                      { request->send(SPIFFS, "/index.html", "text/html"); });
+                      { request->send(LittleFS, "/index.html", "text/html"); });
 
-    server.serveStatic("/", SPIFFS, "/").setDefaultFile("index.html");
     Serial.println("[-] Serveur Web Ok");
 }
 
@@ -229,6 +231,9 @@ void WebServerManager::setupApiRoutes()
 
     server.on("/getConfig", HTTP_GET, [this](AsyncWebServerRequest *request)
               { handleGetConfig(request); });
+
+    server.on("/reboot", HTTP_POST, [this](AsyncWebServerRequest *request)
+              { handleReboot(request); });
 }
 
 void WebServerManager::startServer()
