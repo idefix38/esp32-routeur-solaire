@@ -7,7 +7,6 @@
 // Constructeur de la classe
 MqttManager::MqttManager(ConfigManager &configManager) : configManager(configManager), client(espClient)
 {
-    // Le callback sera défini dans setup() (quand 'this' est bien initialisé)
 }
 
 const std::string configTopic = "homeassistant/sensor/boiler/config";

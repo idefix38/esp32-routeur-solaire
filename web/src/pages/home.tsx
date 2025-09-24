@@ -1,6 +1,6 @@
 import { pagePros } from '../app';
 import { Card } from '../component/card';
-import { Thermometer, Zap } from 'lucide-react';
+import { Thermometer, Zap,Sun } from 'lucide-react';
 import { useConfig } from '../context/configurationContext';
 import { useEsp32WebSocket } from '../hooks/useEsp32WebSocket';
 
@@ -30,11 +30,16 @@ export default function HomePage(props: pagePros) {
             label="Température" 
             Icon={Thermometer} 
             showCheck={isTemperatureTargetReached}  
-          />
+          />          
           <Card 
             value={data.triacOpeningPercentage !== undefined ? `${data.triacOpeningPercentage.toFixed(0)} %` : "..."} 
             label="Ouverture Triac" 
             Icon={Zap} 
+          />
+          <Card 
+            value={data.sunrise !== undefined && data.sunset !== undefined ? `${data.sunrise} - ${data.sunset}` : "..."} 
+            label="Lever / Coucher"
+            Icon={Sun} 
           />
         </div>        
       </div>

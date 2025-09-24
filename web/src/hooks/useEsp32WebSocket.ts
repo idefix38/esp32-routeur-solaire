@@ -3,6 +3,8 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 // Structure des données reçues via WebSocket
 interface WebSocketData {
     temperature?: number;
+    sunrise?: string;
+    sunset?: string;
     triacOpeningPercentage?: number;
 }
 

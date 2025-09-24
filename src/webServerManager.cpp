@@ -13,13 +13,13 @@ void WebServerManager::onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *c
 {
     if (type == WS_EVT_CONNECT)
     {
-        Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+        Serial.printf(" [-] WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
         // Set flag to send data to the new client immediately
         this->newClientConnected = true;
     }
     else if (type == WS_EVT_DISCONNECT)
     {
-        Serial.printf("WebSocket client #%u disconnected\n", client->id());
+        Serial.printf(" [-] WebSocket client #%u disconnected\n", client->id());
     }
 }
 
@@ -264,11 +264,13 @@ void WebServerManager::startServer()
     Serial.println("[-] Serveur Web Ok");
 }
 
-void WebServerManager::broadcastData(float temperature, float triacOpeningPercentage)
+void WebServerManager::broadcastData(float temperature, float triacOpeningPercentage, String sunrise, String sunset)
 {
     JsonDocument doc;
     doc["temperature"] = temperature;
     doc["triacOpeningPercentage"] = triacOpeningPercentage;
+    doc["sunrise"] = sunrise;
+    doc["sunset"] = sunset;
 
     String currentJson;
     serializeJson(doc, currentJson);
