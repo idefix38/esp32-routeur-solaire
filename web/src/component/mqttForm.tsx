@@ -78,8 +78,7 @@ export const MqttForm = ({ onSubmit, initialValues, loading }: MqttFormProps) =>
           <input
             id="user"
             name="user"
-            type="text"
-            required
+            type="text"            
             ref={userRef}
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-lg px-4 py-3"
           />
@@ -93,8 +92,7 @@ export const MqttForm = ({ onSubmit, initialValues, loading }: MqttFormProps) =>
           <input
             id="password"
             name="password"
-            type="password"
-            required
+            type="password"            
             ref={passwordRef}
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-lg px-4 py-3"
           />
