@@ -3,8 +3,24 @@
 
 // Constructeur
 WebServerManager::WebServerManager(ConfigManager &configManager, MqttManager &mqttManager)
-    : configManager(configManager), mqttManager(mqttManager), server(80)
+    : configManager(configManager), mqttManager(mqttManager), server(80), ws("/ws")
 {
+    lastBroadcastedJson = "";
+    newClientConnected = false;
+}
+
+void WebServerManager::onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
+{
+    if (type == WS_EVT_CONNECT)
+    {
+        Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+        // Set flag to send data to the new client immediately
+        this->newClientConnected = true;
+    }
+    else if (type == WS_EVT_DISCONNECT)
+    {
+        Serial.printf("WebSocket client #%u disconnected\n", client->id());
+    }
 }
 
 void WebServerManager::handleReboot(AsyncWebServerRequest *request)
@@ -223,17 +239,21 @@ void WebServerManager::setupApiRoutes()
     server.on("/saveSolarSettings", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
               { handleSaveSolarSettings(request, data, len); });
 
-    server.on("/getData", HTTP_GET, [](AsyncWebServerRequest *request)
-              {
-                      extern volatile float lastTemperature;
-                      extern volatile float triacOpeningPercentage;
-                      request->send(200, "application/json", "{\"temperature\":\"" + String(lastTemperature) + "\", \"triacOpeningPercentage\":\"" + String(triacOpeningPercentage) + "\"}"); });
+    // server.on("/getData", HTTP_GET, [](AsyncWebServerRequest *request)
+    //           {
+    //                   extern volatile float lastTemperature;
+    //                   extern volatile float triacOpeningPercentage;
+    //                   request->send(200, "application/json", "{\"temperature\":\"" + String(lastTemperature) + ", \"triacOpeningPercentage\":\"" + String(triacOpeningPercentage) + "\"}"); });
 
     server.on("/getConfig", HTTP_GET, [this](AsyncWebServerRequest *request)
               { handleGetConfig(request); });
 
     server.on("/reboot", HTTP_POST, [this](AsyncWebServerRequest *request)
               { handleReboot(request); });
+
+    ws.onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
+               { onWsEvent(server, client, type, arg, data, len); });
+    server.addHandler(&ws);
 }
 
 void WebServerManager::startServer()
@@ -242,6 +262,24 @@ void WebServerManager::startServer()
     setupApiRoutes();
     server.begin();
     Serial.println("[-] Serveur Web Ok");
+}
+
+void WebServerManager::broadcastData(float temperature, float triacOpeningPercentage)
+{
+    JsonDocument doc;
+    doc["temperature"] = temperature;
+    doc["triacOpeningPercentage"] = triacOpeningPercentage;
+
+    String currentJson;
+    serializeJson(doc, currentJson);
+
+    // Send data if it has changed or if a new client connected
+    if (newClientConnected || currentJson != lastBroadcastedJson)
+    {
+        ws.textAll(currentJson);
+        lastBroadcastedJson = currentJson;
+        newClientConnected = false;
+    }
 }
 
 // Fonction pour déterminer le Content - Type(MIME type) d'un fichier en fonction de son extension

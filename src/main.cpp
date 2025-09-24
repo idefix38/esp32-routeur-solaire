@@ -163,6 +163,7 @@ void communicationTask(void *pvParameters)
             {
                 lastTemperature = getTemperature();
                 mqttManager.sendData(lastTemperature, triacOpeningPercentage);
+                web.broadcastData(lastTemperature, triacOpeningPercentage);
                 lastTempTime = now;
             }
         }

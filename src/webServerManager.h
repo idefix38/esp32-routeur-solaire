@@ -17,6 +17,7 @@ public:
     void setupLocalWeb();
     void setupApiRoutes();
     void startServer();
+    void broadcastData(float temperature, float triacOpeningPercentage);
 
 private:
     void addFileRoutes(File dir);
@@ -31,6 +32,12 @@ private:
     ConfigManager &configManager;
     MqttManager &mqttManager;
     AsyncWebServer server;
+    AsyncWebSocket ws;
+    void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
+
+    // Variables to track data changes for WebSocket broadcasting
+    String lastBroadcastedJson;
+    bool newClientConnected;
 };
 
 #endif
