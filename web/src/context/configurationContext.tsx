@@ -35,6 +35,7 @@ export interface shellyEmConfig {
 export interface boilerConfig {
     mode: string; // Auto, On ou Off  Auto = Routeur solaire , On = Marche forcée
     temperature?: number; // Températue cible du chauffe eau
+    periods?: period[]; // List of heating periods
     periodStart?: number; // Heure de début de la période de chauffe en minutes
     periodEnd?: number; // Heure de fin de la période de chauffe en minutes
 }
@@ -44,6 +45,13 @@ export interface solarConfig {
     latitude : number;
     longitude : number; 
     timeZone : string;   
+    
+}
+
+export interface period {    
+    start: number; // Heure de début de la période de chauffe en minutes    
+    end: number; // Heure de fin de la période de chauffe en minutes
+    mode: 'auto' | 'on'; // Mode de la période : 'auto' pour suivre le soleil, 'on' pour marche forcée
 }
 
 

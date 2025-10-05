@@ -1,6 +1,5 @@
 import { Sunrise, Sunset, Trash2 } from "lucide-react";
 import DualRangeSlider from "./dualRangeSlider";
-import { useState } from "preact/hooks";
 import { formatMinuteToTime } from "../helper/time";
 
 interface periodProps {
@@ -9,7 +8,9 @@ interface periodProps {
  periodEnd: number;
  sunRise: number;
  sunSet: number;
+ mode: 'auto' | 'on';
  onDelete: () => void;
+ onChange: (values: { start: number; end: number; mode: 'auto' | 'on' }) => void;
 }
 
 /**
@@ -17,10 +18,7 @@ interface periodProps {
 * @param param0
 * @returns
 */
-export const Period = ({ periodStart, periodEnd, sunRise, sunSet, onDelete, canDelete }: periodProps) => {
- const [start, setPeriodStart] = useState(periodStart);
- const [end, setPeriodEnd] = useState(periodEnd);
- const [mode, setMode] = useState<'auto' | 'on'>('auto');
+export const Period = ({ periodStart, periodEnd, sunRise, sunSet, onDelete, canDelete, onChange, mode }: periodProps) => {
 
  const FormatStart = (start: number): string => {
   if (start == sunRise) {
@@ -49,7 +47,7 @@ export const Period = ({ periodStart, periodEnd, sunRise, sunSet, onDelete, canD
     {/* 1. Ligne d'informations (Mobile: Centré | Desktop: Premier, à gauche) */}
     <div className="flex sm:flex-none justify-center sm:justify-start w-full sm:w-auto order-1 sm:order-1">
      <h3 className="text-sm font-medium leading-6 text-gray-900 text-center sm:text-left">
-      {FormatStart(start)} {FormatEnd(end)}
+      {FormatStart(periodStart)} {FormatEnd(periodEnd)}
      </h3>
      {/* Icône Trash à côté des heures sur mobile */}
      {canDelete && (<button onClick={onDelete} className="text-gray-400 hover:text-red-500 ml-4 sm:hidden">
@@ -64,14 +62,14 @@ export const Period = ({ periodStart, periodEnd, sunRise, sunSet, onDelete, canD
       <button
        type="button"
        className={`relative rounded-full py-1 px-4 text-sm font-medium transition-colors whitespace-nowrap ${mode === 'auto' ? 'bg-white text-gray-900' : 'text-gray-500'}`}
-       onClick={() => setMode('auto')}
+       onClick={() => onChange({ start: periodStart, end: periodEnd, mode: 'auto' })}
       >
        Auto
       </button>
       <button
        type="button"
        className={`relative rounded-full py-1 px-4 text-sm font-medium transition-colors whitespace-nowrap ${mode === 'on' ? 'bg-white text-gray-900' : 'text-gray-500'}`}
-       onClick={() => setMode('on')}
+       onClick={() => onChange({ start: periodStart, end: periodEnd, mode: 'on' })}
       >
        On
       </button>
@@ -91,15 +89,14 @@ export const Period = ({ periodStart, periodEnd, sunRise, sunSet, onDelete, canD
     max={1440}
     step={1}
     color="#FFC107"
-    startValue={start}
-    endValue={end}
+    startValue={periodStart}
+    endValue={periodEnd}
     sunrise={sunRise}
     sunset={sunSet}
     sunriseIcon={Sunrise}
     sunsetIcon={Sunset}
     onChange={({ start, end }) => {
-     setPeriodStart(start);
-     setPeriodEnd(end);
+     onChange({ start, end, mode });
     }}
    />
   </div>
