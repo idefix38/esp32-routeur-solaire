@@ -4,88 +4,104 @@ import { useState } from "preact/hooks";
 import { formatMinuteToTime } from "../helper/time";
 
 interface periodProps {
-  canDelete : boolean;
-  periodStart: number;
-  periodEnd: number;
-  sunRise: number;
-  sunSet: number;
-  onDelete: () => void;
+ canDelete: boolean;
+ periodStart: number;
+ periodEnd: number;
+ sunRise: number;
+ sunSet: number;
+ onDelete: () => void;
 }
 
 /**
- * Composant d'afficahge d'un periode
- * @param param0
- * @returns
- */
-export const Period = ({ periodStart, periodEnd, sunRise, sunSet, onDelete , canDelete }: periodProps) => {
-  const [start, setPeriodStart] = useState(periodStart);
-  const [end, setPeriodEnd] = useState(periodEnd);
-  const [mode, setMode] = useState<'auto' | 'on'>('auto');
+* Composant d'afficahge d'un periode
+* @param param0
+* @returns
+*/
+export const Period = ({ periodStart, periodEnd, sunRise, sunSet, onDelete, canDelete }: periodProps) => {
+ const [start, setPeriodStart] = useState(periodStart);
+ const [end, setPeriodEnd] = useState(periodEnd);
+ const [mode, setMode] = useState<'auto' | 'on'>('auto');
 
-  const FormatStart = (start: number): string => {
-    if (start == sunRise) {
-      return "Du lever du soleil";
-    } else if (start == sunSet) {
-      return "Du coucher du soleil";
-    }
-    return `De ${formatMinuteToTime(start)}`;
-  };
+ const FormatStart = (start: number): string => {
+  if (start == sunRise) {
+   return "Du lever du soleil";
+  } else if (start == sunSet) {
+   return "Du coucher du soleil";
+  }
+  return `De ${formatMinuteToTime(start)}`;
+ };
 
-  const FormatEnd = (end: number): string => {
-    if (end == sunRise) {
-      return "au lever du soleil";
-    } else if (end == sunSet) {
-      return "au coucher du soleil";
-    } else {
-      return "à " + formatMinuteToTime(end);
-    }
-  };
+ const FormatEnd = (end: number): string => {
+  if (end == sunRise) {
+   return "au lever du soleil";
+  } else if (end == sunSet) {
+   return "au coucher du soleil";
+  } else {
+   return "à " + formatMinuteToTime(end);
+  }
+ };
 
-  return (
-    <div className="bg-white shadow-md rounded-lg p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-sm font-medium leading-6 text-gray-900 mt-4 text-center sm:text-left order-2 sm:order-2 w-full sm:w-auto">
-          {FormatStart(start)} {FormatEnd(end)}
-        </h3>
-        <div className="flex items-center justify-between sm:mt-0 order-1 sm:order-1">
-          <div className="relative flex items-center rounded-full p-1 bg-gray-200">
-            <button
-              type="button"
-              className={`relative rounded-full py-1 px-4 text-sm font-medium transition-colors whitespace-nowrap ${mode === 'auto' ? 'bg-white text-gray-900' : 'text-gray-500'}`}
-              onClick={() => setMode('auto')}
-            >
-              Auto
-            </button>
-            <button
-              type="button"
-              className={`relative rounded-full py-1 px-4 text-sm font-medium transition-colors whitespace-nowrap ${mode === 'on' ? 'bg-white text-gray-900' : 'text-gray-500'}`}
-              onClick={() => setMode('on')}
-            >
-              On
-            </button>
-          </div>
-           {canDelete && (<button onClick={onDelete} className="text-gray-400 hover:text-red-500 sm:ml-4">
-            <Trash2 size={20} />
-          </button>)}
-        </div>
-      </div>
-      
-        <DualRangeSlider
-          min={0}
-          max={1440}
-          step={5}
-          color="#FFC107"
-          startValue={start}
-          endValue={end}
-          sunrise={sunRise}
-          sunset={sunSet}
-          sunriseIcon={Sunrise}
-          sunsetIcon={Sunset}
-          onChange={({ start, end }) => {
-            setPeriodStart(start);
-            setPeriodEnd(end);
-          }}
-        />      
+ return (
+  <div className="bg-white shadow-md rounded-lg p-6">
+   {/* Conteneur principal pour la disposition */}
+   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+    {/* 1. Ligne d'informations (Mobile: Centré | Desktop: Premier, à gauche) */}
+    <div className="flex sm:flex-none justify-center sm:justify-start w-full sm:w-auto order-1 sm:order-1">
+     <h3 className="text-sm font-medium leading-6 text-gray-900 text-center sm:text-left">
+      {FormatStart(start)} {FormatEnd(end)}
+     </h3>
+     {/* Icône Trash à côté des heures sur mobile */}
+     {canDelete && (<button onClick={onDelete} className="text-gray-400 hover:text-red-500 ml-4 sm:hidden">
+      <Trash2 size={20} />
+     </button>)}
     </div>
-  );
+
+    {/* 2. Switch Auto/On et Icône Trash (Mobile: Centré | Desktop: À droite) */}
+    <div className="grow flex justify-center sm:justify-start sm:mt-0 w-full order-2 sm:order-2">
+     {/* Switch Auto/On */}
+     <div className="relative flex size-min items-center rounded-full p-1 bg-gray-200">
+      <button
+       type="button"
+       className={`relative rounded-full py-1 px-4 text-sm font-medium transition-colors whitespace-nowrap ${mode === 'auto' ? 'bg-white text-gray-900' : 'text-gray-500'}`}
+       onClick={() => setMode('auto')}
+      >
+       Auto
+      </button>
+      <button
+       type="button"
+       className={`relative rounded-full py-1 px-4 text-sm font-medium transition-colors whitespace-nowrap ${mode === 'on' ? 'bg-white text-gray-900' : 'text-gray-500'}`}
+       onClick={() => setMode('on')}
+      >
+       On
+      </button>
+     </div>    
+    </div>
+    <div className="hidden sm:block justify-end flex-none mt-4 sm:mt-0  sm:order-2">
+       {/* Icône Trash sur Desktop (masquée sur mobile car déplacée) */}
+     {canDelete && (<button onClick={onDelete} className="text-gray-400 hover:text-red-500 ml-4">
+      <Trash2 size={20} />
+     </button>)}
+    </div>
+   </div>
+   
+   {/* Slider toujours en bas */}
+   <DualRangeSlider
+    min={0}
+    max={1440}
+    step={1}
+    color="#FFC107"
+    startValue={start}
+    endValue={end}
+    sunrise={sunRise}
+    sunset={sunSet}
+    sunriseIcon={Sunrise}
+    sunsetIcon={Sunset}
+    onChange={({ start, end }) => {
+     setPeriodStart(start);
+     setPeriodEnd(end);
+    }}
+   />
+  </div>
+ );
 };
