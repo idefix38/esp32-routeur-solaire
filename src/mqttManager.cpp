@@ -92,8 +92,9 @@ void MqttManager::onMqttMessage(char *topic, byte *payload, unsigned int length)
             configTmp.boiler.mode = payloadStr.c_str();
             this->configManager.saveConfig(configTmp);
 
+            // Mise à jour avec la nouvelle config
             extern Config config;
-            config = configTmp;
+            config = this->configManager.loadConfig();
 
             Serial.print("[MQTT] Mode chauffe-eau mis à jour : ");
             Serial.println(payloadStr);

@@ -6,6 +6,7 @@ interface WebSocketData {
     sunrise?: string;
     sunset?: string;
     triacOpeningPercentage?: number;
+    temperatureReached?: boolean;
 }
 
 // Énumération pour le statut de la connexion
@@ -21,7 +22,7 @@ export enum ConnectionStatus {
  * @returns Un objet contenant les dernières données reçues et le statut de la connexion.
  */
 export function useEsp32WebSocket() {
-    const [data, setData] = useState<WebSocketData>({ temperature: undefined, triacOpeningPercentage: undefined });
+    const [data, setData] = useState<WebSocketData>({ temperature: undefined, triacOpeningPercentage: undefined, temperatureReached: false });
     const [status, setStatus] = useState<ConnectionStatus>(ConnectionStatus.Closed);
     const ws = useRef<WebSocket | null>(null);
 

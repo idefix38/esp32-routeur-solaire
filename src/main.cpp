@@ -39,7 +39,7 @@ volatile float lastPower = 0;              // Dernière puissance mesurée
 int nowMinutes = 0;                        // Heure en minute
 int sunriseMinutes = 0;                    // Heure de lever du soleil en minute
 int sunsetMinutes = 0;                     // Heure du coucherdu soleil en minute
-bool temperatureReached = false;           // True si la température a été atteinte dans la journée
+volatile bool temperatureReached = false;  // True si la température a été atteinte dans la journée (Remise à zéro au lever du soleil)
 volatile bool reboot = false;              // true si on demande à l'ESP32 un reboot
 
 // Mutex for thread-safe operations
@@ -60,63 +60,63 @@ void signalProcessingTask(void *pvParameters)
         int boilerTemperature = config.boiler.temperature;
         xSemaphoreGive(configMutex);
 
-        // Determine si on est entre le lever et le coucher du soleil
         struct tm localNow;
         if (getLocalTime(&localNow))
         {
+
             struct tm sunrise = solarManager->calculateSunrise(config.solar.latitude, config.solar.longitude);
             struct tm sunset = solarManager->calculateSunset(config.solar.latitude, config.solar.longitude);
 
             nowMinutes = localNow.tm_hour * 60 + localNow.tm_min;
             sunriseMinutes = sunrise.tm_hour * 60 + sunrise.tm_min;
             sunsetMinutes = sunset.tm_hour * 60 + sunset.tm_min;
-            if (nowMinutes < sunriseMinutes)
+
+            // Obtient le mode lié à la configuration personnalisé des périodes
+            std::string periodMode = configManager.getTriacMode(sunriseMinutes, sunsetMinutes, config);
+
+            if (nowMinutes == sunriseMinutes)
             {
                 // Remise à zero de température atteinte, avant le lever du soleil
                 temperatureReached = false;
             }
-        }
 
-        if (lastTemperature > config.boiler.temperature || temperatureReached)
-        {
-            // Le chauffe eau est chaud, plus besoin de régulation
-            // Même si la température redescent en dessous de la température de consigne,
-            // on ne relance le chauffe eau qu'après le prochain lever de soleil
-            solarManager->Off();
-            triacOpeningPercentage = 0;
-            temperatureReached = true;
-        }
-        else if (mode == "Auto" || mode == "auto")
-        {
-            // Toutes les 1 seconde, lecture de la puissance consommée
-            if (shelly != nullptr && (now - lastShellyTime) > 1000)
+            if (lastTemperature > config.boiler.temperature || temperatureReached)
             {
-                // On est bien entre le lever et le coucher du soleil
-                if (nowMinutes >= sunriseMinutes && nowMinutes <= sunsetMinutes)
+                // Le chauffe eau est chaud, plus besoin de régulation
+                // Même si la température redescent en dessous de la température de consigne,
+                // on ne relance le chauffe eau qu'après le prochain lever de soleil
+                solarManager->Off();
+                triacOpeningPercentage = 0;
+                temperatureReached = true;
+            }
+            else if ((mode == "Auto" || mode == "auto") && periodMode == "AUTO")
+            {
+                // Toutes les 1 seconde, lecture de la puissance consommée
+                if (shelly != nullptr && (now - lastShellyTime) > 1000)
                 {
+
                     lastPower = shelly->getPower();
                     Serial.print("[ShellyEM] Puissance: ");
                     Serial.println(lastPower);
                     triacOpeningPercentage = solarManager->updateRegulation(lastPower);
-                }
 
-                // keep throttle timing regardless of whether we read or not
-                lastShellyTime = now;
+                    // keep throttle timing regardless of whether we read or not
+                    lastShellyTime = now;
+                }
+            }
+            else if ((mode == "On" || mode == "on") || periodMode == "ON")
+            {
+                // Mode "Marche Forcé"
+                solarManager->On();
+                triacOpeningPercentage = 100;
+            }
+            else if ((mode == "Off" || mode == "off") || periodMode == "OFF")
+            {
+                // Mode "Arret Forcé"
+                solarManager->Off();
+                triacOpeningPercentage = 0;
             }
         }
-        else if (mode == "On" || mode == "on")
-        {
-            // Mode "Marche Forcé"
-            solarManager->On();
-            triacOpeningPercentage = 100;
-        }
-        else if (mode == "Off" || mode == "off")
-        {
-            // Mode "Arret Forcé"
-            solarManager->Off();
-            triacOpeningPercentage = 0;
-        }
-
         // Delay to prevent task from hogging the CPU
         vTaskDelay(pdMS_TO_TICKS(10));
     }
@@ -155,7 +155,7 @@ void communicationTask(void *pvParameters)
         // Brocast des donnée vers l'app web
         if (now - lastBroadCastweb > 1000)
         {
-            web.broadcastData(lastTemperature, triacOpeningPercentage);
+            web.broadcastData(lastTemperature, triacOpeningPercentage, temperatureReached);
             lastBroadCastweb = now;
         }
 
@@ -206,43 +206,8 @@ void setup()
     // Load configuration
     config = configManager.loadConfig();
 
-    // Log config
-    JsonDocument doc;
-    JsonObject wifiObj = doc["wifi"].to<JsonObject>();
-    wifiObj["ssid"] = config.wifi.ssid;
-
-    JsonObject mqttObj = doc["mqtt"].to<JsonObject>();
-    mqttObj["server"] = config.mqtt.server;
-    mqttObj["port"] = config.mqtt.port;
-    mqttObj["username"] = config.mqtt.username;
-    mqttObj["topic"] = config.mqtt.topic;
-
-    JsonObject shellyObj = doc["shellyEm"].to<JsonObject>();
-    shellyObj["ip"] = config.shellyEm.ip;
-    shellyObj["channel"] = config.shellyEm.channel;
-
-    JsonObject boilerObj = doc["boiler"].to<JsonObject>();
-    boilerObj["mode"] = config.boiler.mode;
-    boilerObj["temperature"] = config.boiler.temperature;
-    JsonArray boilerPeriods = boilerObj["periods"].to<JsonArray>();
-    for (const auto &p : config.boiler.periods)
-    {
-        JsonObject periodObj = boilerPeriods.add<JsonObject>();
-        periodObj["start"] = p.start;
-        periodObj["end"] = p.end;
-        periodObj["mode"] = p.mode;
-    }
-
-    JsonObject solarObj = doc["solar"].to<JsonObject>();
-    solarObj["latitude"] = config.solar.latitude;
-    solarObj["longitude"] = config.solar.longitude;
-    solarObj["timeZone"] = config.solar.timeZone;
-
-    String jsonConfig;
-    serializeJsonPretty(doc, jsonConfig);
-    Serial.println("--------- Configuration chargée ---------");
-    Serial.println(jsonConfig);
-    Serial.println("------------------------------------");
+    // Print Config
+    configManager.printConfig(config);
 
     // Setup WiFi
     wifiManager.setupAccessPoint("ESP32_WROOM_SOLAR_ROUTER");
@@ -280,31 +245,31 @@ void setup()
         Serial.print("    - Date/Heure locale: ");
         Serial.println(timeStr);
 
-        // Calcul lever et coucher du soleil
-        struct tm sunrise = solarManager->calculateSunrise(config.solar.latitude, config.solar.longitude);
-        struct tm sunset = solarManager->calculateSunset(config.solar.latitude, config.solar.longitude);
+        // // Calcul lever et coucher du soleil
+        // struct tm sunrise = solarManager->calculateSunrise(config.solar.latitude, config.solar.longitude);
+        // struct tm sunset = solarManager->calculateSunset(config.solar.latitude, config.solar.longitude);
 
-        if (sunrise.tm_year != -1)
-        {
-            strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &sunrise);
-            Serial.print("    - Lever du soleil: ");
-            Serial.println(timeStr);
-        }
-        else
-        {
-            Serial.println("    - Lever du soleil: (erreur)");
-        }
+        // if (sunrise.tm_year != -1)
+        // {
+        //     strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &sunrise);
+        //     Serial.print("    - Lever du soleil: ");
+        //     Serial.println(timeStr);
+        // }
+        // else
+        // {
+        //     Serial.println("    - Lever du soleil: (erreur)");
+        // }
 
-        if (sunset.tm_year != -1)
-        {
-            strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &sunset);
-            Serial.print("    - Coucher du soleil: ");
-            Serial.println(timeStr);
-        }
-        else
-        {
-            Serial.println("    - Coucher du soleil: (erreur)");
-        }
+        // if (sunset.tm_year != -1)
+        // {
+        //     strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &sunset);
+        //     Serial.print("    - Coucher du soleil: ");
+        //     Serial.println(timeStr);
+        // }
+        // else
+        // {
+        //     Serial.println("    - Coucher du soleil: (erreur)");
+        // }
     }
 
     // Setup MQTT

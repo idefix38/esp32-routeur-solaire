@@ -150,13 +150,13 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
 
     Config configTmp = this->configManager.loadConfig();
 
-    if (doc.containsKey("shellyEm"))
+    if (!doc["shellyEm"].isNull())
     {
         configTmp.shellyEm.ip = doc["shellyEm"]["ip"] | "";
         configTmp.shellyEm.channel = doc["shellyEm"]["channel"] | "0";
     }
 
-    if (doc.containsKey("solar"))
+    if (!doc["solar"].isNull())
     {
         configTmp.solar.latitude = doc["solar"]["latitude"] | 48.8566;
         configTmp.solar.longitude = doc["solar"]["longitude"] | 2.3522;
@@ -192,7 +192,7 @@ void WebServerManager::handleSaveBoilerSettings(AsyncWebServerRequest *request, 
 
     configTmp.boiler.mode = doc["mode"] | "auto";
     configTmp.boiler.temperature = doc["temperature"] | 50;
-    if (doc.containsKey("periods"))
+    if (!doc["periods"].isNull())
     {
         configTmp.boiler.periods.clear();
         for (JsonObject p : doc["periods"].as<JsonArray>())
@@ -201,10 +201,10 @@ void WebServerManager::handleSaveBoilerSettings(AsyncWebServerRequest *request, 
             period.start = p["start"];
             period.end = p["end"];
             period.mode = p["mode"] | "auto";
-            // period.startSunrise = p["startSunrise"] | false;
-            // period.startSunset = p["startSunset"] | false;
-            // period.endSunrise = p["endSunrise"] | false;
-            // period.endSunset = p["endSunset"] | false;
+            period.startSunrise = p["start"] == configTmp.solar.sunRiseMinutes;
+            period.startSunset = p["start"] == configTmp.solar.sunSetMinutes;
+            period.endSunrise = p["end"] == configTmp.solar.sunRiseMinutes;
+            period.endSunset = p["end"] == configTmp.solar.sunSetMinutes;
             configTmp.boiler.periods.push_back(period);
         }
     }
@@ -213,6 +213,8 @@ void WebServerManager::handleSaveBoilerSettings(AsyncWebServerRequest *request, 
 
     extern Config config;
     config = configTmp;
+    extern bool temperatureReached;
+    temperatureReached = false;
 
     this->mqttManager.publishBoilerMode(config.boiler.mode.c_str());
     this->mqttManager.publishBoilerTemperature(config.boiler.temperature);
@@ -292,11 +294,12 @@ void WebServerManager::startServer()
     Serial.println("[-] Serveur Web Ok");
 }
 
-void WebServerManager::broadcastData(float temperature, float triacOpeningPercentage)
+void WebServerManager::broadcastData(float temperature, float triacOpeningPercentage, bool temperatureReached)
 {
     JsonDocument doc;
     doc["temperature"] = temperature;
     doc["triacOpeningPercentage"] = triacOpeningPercentage;
+    doc["temperatureReached"] = temperatureReached;
 
     String currentJson;
     serializeJson(doc, currentJson);

@@ -15,11 +15,7 @@ export default function HomePage(props: pagePros) {
   // Utilise le hook WebSocket pour obtenir les données et le statut en temps réel
   const { data } = useEsp32WebSocket();
   const { value: config } = useConfig();
-
-  const isTemperatureTargetReached =
-    data.temperature !== undefined &&
-    config?.boiler?.temperature !== undefined &&
-    data.temperature >= config.boiler.temperature;
+  
 
   return (
     <div className="container p-8">
@@ -30,7 +26,7 @@ export default function HomePage(props: pagePros) {
             value={data.temperature !== undefined ? `${data.temperature.toFixed(1)}°C` : "..."} 
             label="Température" 
             Icon={Thermometer} 
-            showCheck={isTemperatureTargetReached}  
+            showCheck={data.temperatureReached ?? false}  
           />          
           <Card 
             value={data.triacOpeningPercentage !== undefined ? `${data.triacOpeningPercentage.toFixed(0)} %` : "..."} 

@@ -78,6 +78,8 @@ public:
     bool saveConfig(const Config &config); // Sauvegarde la configuration dans la mémoire flash
     Config loadConfig();                   // Charge la configuration depuis la mémoire flash
     void clearConfig();                    // Efface la configuration de la mémoire flash
+    std::string getTriacMode(int sunRiseMinutes, int sunSetMinutes, const Config &config);
+    void printConfig(const Config &config);
 
 private:
     Preferences _preferences;
