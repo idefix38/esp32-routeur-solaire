@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import styles from './dualRangeSlider.module.scss';
 import { LucideProps, Minus, Plus } from 'lucide-react';
+import { formatMinuteToTime } from '../helper/time';
 
 export interface DualRangeSliderOnChangeData {
   start: number;
@@ -49,12 +50,12 @@ const DualRangeSlider: React.FC<DualRangeSliderProps> = ({
   };
 
   const handleStartChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = Math.min(Number(e.target.value), endValue);
+    const value = Math.min(Number((e.target as HTMLInputElement).value), endValue);
     triggerOnChange(value, endValue);
   };
 
   const handleEndChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = Math.max(Number(e.target.value), startValue);
+    const value = Math.max(Number((e.target as HTMLInputElement).value), startValue);
     triggerOnChange(startValue, value);
   };
 
@@ -111,7 +112,7 @@ const DualRangeSlider: React.FC<DualRangeSliderProps> = ({
                     className={styles.iconMarkerWrapper}
                     style={{ left: `${((sunrise - min) / (max - min)) * 100}%` }}
                     onClick={handleSunriseClick}
-                    title="Heure de lever du soleil"
+                    title={`Heure de lever du soleil - ${formatMinuteToTime(sunrise)}`}
                 >
                     <SunriseIcon className={styles.iconMarker} />
                 </div>
@@ -121,7 +122,7 @@ const DualRangeSlider: React.FC<DualRangeSliderProps> = ({
                     className={styles.iconMarkerWrapper}
                     style={{ left: `${((sunset - min) / (max - min)) * 100}%` }}
                     onClick={handleSunsetClick}
-                    title="Heure de coucher du soleil"
+                    title={`Heure de coucher du soleil - ${formatMinuteToTime(sunset)}`}
                 >
                     <SunsetIcon className={styles.iconMarker} />
                 </div>

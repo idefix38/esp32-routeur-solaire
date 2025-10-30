@@ -6,7 +6,7 @@ import { timeZones } from "../helper/timezone";
 
 
 interface solarFormProps {
-  onSubmit: (boilerSettings?: boilerConfig, shellyEmSettings? : shellyEmConfig, solarSettings?: solarConfig  ) => Promise<any>;
+  onSubmit: ( shellyEmSettings? : shellyEmConfig, solarSettings?: solarConfig  ) => Promise<any>;
   loading?: boolean;
   boilerSettings?: boilerConfig;
   shellyEmSettings? : shellyEmConfig;
@@ -17,34 +17,26 @@ interface solarFormProps {
 /**
  * Simple form for updating the ShellyEM IP address.
  */
-function SolarForm({ onSubmit, loading, boilerSettings, shellyEmSettings, solarSettings }: solarFormProps) {
+function SolarForm({ onSubmit, loading,  shellyEmSettings, solarSettings }: solarFormProps) {
   const ipRef = useRef<HTMLInputElement>(null);
   const channel1Ref = useRef<HTMLInputElement>(null);
-  const channel2Ref = useRef<HTMLInputElement>(null);
-  const modeAutoRef = useRef<HTMLInputElement>(null);
-  const modeOnRef = useRef<HTMLInputElement>(null);
-  const modeOffRef = useRef<HTMLInputElement>(null);
-  const temperatureRef = useRef<HTMLInputElement>(null);
+  const channel2Ref = useRef<HTMLInputElement>(null);    
   const latitudeRef = useRef<HTMLInputElement>(null);
   const longitudeRef = useRef<HTMLInputElement>(null);
   const timezoneRef = useRef<HTMLSelectElement>(null);
 
   // Affichege des valeurs par défaut
   useEffect(() => {
-    console.log("Paramètre solaire :" , boilerSettings, shellyEmSettings, solarSettings);
-    if (boilerSettings && shellyEmSettings && solarSettings) {
+    console.log("Paramètre solaire :" ,  shellyEmSettings, solarSettings);
+    if ( shellyEmSettings && solarSettings) {
       if (ipRef.current) ipRef.current.value = shellyEmSettings.ip || '';
       if (channel1Ref.current) channel1Ref.current.checked = shellyEmSettings.channel === '1';
-      if (channel2Ref.current) channel2Ref.current.checked = shellyEmSettings.channel === '2';
-      if (modeAutoRef.current) modeAutoRef.current.checked = boilerSettings.mode.toLowerCase() === 'auto';
-      else if (modeOnRef.current) modeOnRef.current.checked = boilerSettings.mode.toLowerCase() === 'on';
-      else if (modeOffRef.current) modeOffRef.current.checked = boilerSettings.mode.toLowerCase() === 'off';
-      if (temperatureRef.current) temperatureRef.current.value = boilerSettings.temperature?.toString() || '50';
+      if (channel2Ref.current) channel2Ref.current.checked = shellyEmSettings.channel === '2';      
       if (latitudeRef.current) latitudeRef.current.value = solarSettings.latitude?.toString() || '';
       if (longitudeRef.current) longitudeRef.current.value = solarSettings.longitude?.toString() || '';
       if (timezoneRef.current) timezoneRef.current.value = solarSettings.timeZone || 'Europe/Paris';
     }
-  }, [boilerSettings, shellyEmSettings, solarSettings]);
+  }, [ shellyEmSettings, solarSettings]);
 
   // Handles the form submission for Solar settings.
   const handleSubmit = (e: Event) => {
@@ -52,17 +44,13 @@ function SolarForm({ onSubmit, loading, boilerSettings, shellyEmSettings, solarS
     const  dataShelly : shellyEmConfig = {
       ip : ipRef.current?.value || '',
       channel : channel1Ref.current?.checked ? '1' : '2',
-    }
-    const dataBoiler : boilerConfig = {
-      mode : modeAutoRef.current?.checked ? 'auto' : modeOnRef.current?.checked ? 'on' : 'off',
-      temperature: parseInt(temperatureRef.current?.value || '50')
-    }
+    }    
     const dataSolar : solarConfig = {
         latitude: parseFloat(latitudeRef.current?.value || '0'),
         longitude: parseFloat(longitudeRef.current?.value || '0'),
-        timeZone: timezoneRef.current?.value || 'Europe/Paris'
+        timeZone: timezoneRef.current?.value || 'Europe/Paris',        
     }
-    onSubmit(dataBoiler, dataShelly, dataSolar);
+    onSubmit( dataShelly, dataSolar);
   };
 
   return (
@@ -103,56 +91,7 @@ function SolarForm({ onSubmit, loading, boilerSettings, shellyEmSettings, solarS
           />
           <span className="ml-2">Channel 2</span>
         </label>
-      </div>
-      {/* // Mode */}
-      <div>
-        <span className="block text-sm font-medium text-gray-700 mb-1">Mode</span>
-        <label className="inline-flex items-center mr-4">
-          <input
-            type="radio"
-            name="mode"
-            value="auto"
-            ref={modeAutoRef}
-            className="form-radio text-indigo-600"
-            defaultChecked={boilerSettings?.mode === 'auto'}
-          />
-          <span className="ml-2">Auto (Routeur Solaire)</span>
-        </label>
-        <label className="inline-flex items-center mr-4">
-          <input
-            type="radio"
-            name="mode"
-            value="on"
-            ref={modeOnRef}
-            className="form-radio text-indigo-600"
-            defaultChecked={boilerSettings?.mode === 'on'}
-          />
-          <span className="ml-2">On (Marche forcé)</span>
-        </label>
-        <label className="inline-flex items-center">
-          <input
-            type="radio"
-            name="mode"
-            value="off"
-            ref={modeOffRef}
-            className="form-radio text-indigo-600"
-            defaultChecked={boilerSettings?.mode === 'off'}
-          />
-          <span className="ml-2">Off (Stop forcé)</span>
-        </label>
-      </div>
-      <div>
-        <label htmlFor="boilerTemp" className="block text-sm font-medium text-gray-700">Température cible du chauffe-eau (C°)</label>
-        <input
-          id="boilerTemp"
-          name="boilerTemp"
-          type="number"
-          ref={temperatureRef}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-lg px-4 py-3"
-          placeholder="50 °C"
-          required
-        />
-      </div>
+      </div>            
       <div>
         <label htmlFor="latitude" className="block text-sm font-medium text-gray-700">Latitude</label>
         <input

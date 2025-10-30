@@ -8,39 +8,43 @@ interface boilerFormProps {
   onSubmit: (boilerSettings?: boilerConfig) => Promise<any>;
   loading?: boolean;
   boilerSettings?: boilerConfig;
+  sunRiseMinutes: number;
+  sunSetMinutes: number;
 }
 
-type PeriodType = {
+type PeriodType = period & {
   id: number;
-  start: number;
-  end: number;
-  mode: "auto" | "on";
 };
 
 let nextId = 0;
 
-export const BoilerForm = ({ onSubmit, boilerSettings, loading }: boilerFormProps) => {
-
+export const BoilerForm = ({ onSubmit, boilerSettings, loading, sunRiseMinutes,sunSetMinutes }: boilerFormProps) => {
+  
   const temperatureRef = useRef<HTMLInputElement>(null);
   const [periods, setPeriods] = useState<PeriodType[]>([]);
+  const [currentMode, setCurrentMode] = useState(boilerSettings?.mode?.toLowerCase() || 'auto');
 
+  const handleModeChange = (e: Event) => {
+    setCurrentMode((e.target as HTMLInputElement).value);
+  };
+
+  // Affichage des valeurs par défaut
   useEffect(() => {
     let initialPeriods: PeriodType[] = [];
     if (boilerSettings) {
+      setCurrentMode(boilerSettings.mode.toLowerCase() || 'auto');
       if (temperatureRef.current) {
         temperatureRef.current.value = boilerSettings.temperature?.toString() || '50';
       }
       if (boilerSettings.periods && boilerSettings.periods.length > 0) {
         initialPeriods = boilerSettings.periods.map((p) => ({ ...p, id: nextId++ }));
-      } else if (boilerSettings.periodStart !== undefined && boilerSettings.periodEnd !== undefined) {
-        initialPeriods = [{ id: nextId++, start: boilerSettings.periodStart, end: boilerSettings.periodEnd, mode: 'auto' }];
       }
     }
-
     if (initialPeriods.length === 0) {
-      initialPeriods = [{ id: nextId++, start: 6 * 60, end: 18 * 60, mode: 'auto' }];
+      // Initialize with a default period if none exist
+      initialPeriods = [{ id: nextId++, start: sunRiseMinutes, end: sunSetMinutes, mode: 'auto' }];
     }
-    
+
     setPeriods(initialPeriods);
   }, [boilerSettings]);
 
@@ -51,7 +55,7 @@ export const BoilerForm = ({ onSubmit, boilerSettings, loading }: boilerFormProp
 
   // Fonction pour ajouter une nouvelle période
   const addPeriod = () => {
-    setPeriods([...periods, { id: nextId++, start: 8 * 60, end: 17 * 60, mode: 'auto' }]);
+    setPeriods([...periods, { id: nextId++, start: sunRiseMinutes, end: sunSetMinutes, mode: 'auto' }]);
   };
 
   // Fonction pour supprimer une période
@@ -61,17 +65,17 @@ export const BoilerForm = ({ onSubmit, boilerSettings, loading }: boilerFormProp
     }
   };
 
+  
   // Donnée à envoyer
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (temperatureRef.current && boilerSettings) {
-      const newSettings: boilerConfig = {
-        ...boilerSettings,
-        temperature: parseFloat(temperatureRef.current.value),
-        periods: periods.map(({ start, end, mode }) => ({ start, end, mode }))
-      };
-      onSubmit(newSettings);
-    }
+    e.preventDefault();    
+
+    const newSettings: boilerConfig = {
+      mode: currentMode,
+      temperature: parseFloat(temperatureRef.current?.value || "50"),
+      periods: periods.map(({ start, end, mode, startSunrise, startSunset, endSunrise, endSunset }) => ({ start, end, mode, startSunrise, startSunset, endSunrise, endSunset }))
+    };
+    onSubmit(newSettings);
   }
 
   return (
@@ -88,43 +92,85 @@ export const BoilerForm = ({ onSubmit, boilerSettings, loading }: boilerFormProp
           required
         />
       </div>
-      <label className="block text-sm font-medium text-gray-700">Périodes de chauffe</label>
-      <div className="space-y-4">
-        {periods.map((period) => (
-          <Period
-            key={period.id}
-            periodStart={period.start}
-            periodEnd={period.end}
-            sunRise={6 * 60} // This should probably come from props/context
-            sunSet={18 * 60} // This should probably come from props/context
-            canDelete={periods.length > 1}
-            mode={period.mode}
-            onDelete={() => deletePeriod(period.id)}
-            onChange={(newValues) => handlePeriodChange(period.id, newValues)}
+      {/* // Mode */}
+      <div>
+        <span className="block text-sm font-medium text-gray-700 mb-4">Mode de fonctionnement</span>
+        <label className="inline-flex items-center mr-4">
+          <input
+            type="radio"
+            name="mode"
+            value="auto"
+            className="form-radio text-indigo-600"
+            checked={currentMode === 'auto'}
+            onChange={handleModeChange}
           />
-        ))}
+          <span className="ml-2">Personnalisé</span>
+        </label>
+        <label className="inline-flex items-center mr-4">
+          <input
+            type="radio"
+            name="mode"
+            value="on"
+            className="form-radio text-indigo-600"
+            checked={currentMode === 'on'}
+            onChange={handleModeChange}
+          />
+          <span className="ml-2">On (Marche forcé)</span>
+        </label>
+        <label className="inline-flex items-center">
+          <input
+            type="radio"
+            name="mode"
+            value="off"
+            className="form-radio text-indigo-600"
+            checked={currentMode === 'off'}
+            onChange={handleModeChange}
+          />
+          <span className="ml-2">Off (Stop forcé)</span>
+        </label>
       </div>
+
+      {currentMode === 'auto' && (
+        <>
+          <label className="block text-sm font-medium text-gray-700">Périodes de chauffe</label>
+          <div className="space-y-4">
+            {periods.map((period) => (
+              <Period
+                key={period.id}
+                periodStart={period.start}
+                periodEnd={period.end}
+                sunRise={sunRiseMinutes} // This should probably come from props/context
+                sunSet={sunSetMinutes} // This should probably come from props/context
+                canDelete={periods.length > 1}
+                mode={period.mode}
+                onDelete={() => deletePeriod(period.id)}
+                onChange={(newValues) => handlePeriodChange(period.id, newValues)}
+              />
+            ))}
+          </div>
+          <div className="space-x-4">
+            <button
+              type="button"
+              onClick={addPeriod}
+              className="inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            >
+              + Période
+            </button>
+          </div>
+        </>
+      )}
+
       <div className="space-x-4">
-
-      
-      <button 
-        type="button" 
-        onClick={addPeriod}
-        className="inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-      >
-        + Période
-      </button>
-
-      <button
-        type="submit"
-        className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-        disabled={loading}
-      >
-        {loading && (
-          <Loader className="mr-2 h-5 w-5 animate-spin text-white" />
-        )}
-        Enregistrer
-      </button>
+        <button
+          type="submit"
+          className="inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          disabled={loading}
+        >
+          {loading && (
+            <Loader className="mr-2 h-5 w-5 animate-spin text-white" />
+          )}
+          Enregistrer
+        </button>
       </div>
     </form>
   );

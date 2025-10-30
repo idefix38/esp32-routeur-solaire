@@ -1,6 +1,7 @@
 import { Sunrise, Sunset, Trash2 } from "lucide-react";
 import DualRangeSlider from "./dualRangeSlider";
 import { formatMinuteToTime } from "../helper/time";
+import { period } from "../context/configurationContext";
 
 interface periodProps {
  canDelete: boolean;
@@ -10,7 +11,7 @@ interface periodProps {
  sunSet: number;
  mode: 'auto' | 'on';
  onDelete: () => void;
- onChange: (values: { start: number; end: number; mode: 'auto' | 'on' }) => void;
+ onChange: (value: period) => void;
 }
 
 /**
@@ -96,7 +97,7 @@ export const Period = ({ periodStart, periodEnd, sunRise, sunSet, onDelete, canD
     sunriseIcon={Sunrise}
     sunsetIcon={Sunset}
     onChange={({ start, end }) => {
-     onChange({ start, end, mode });
+     onChange({ start : start, end: end, mode: mode , startSunrise: start === sunRise, startSunset: start === sunSet, endSunrise: end === sunRise, endSunset: end === sunSet });
     }}
    />
   </div>

@@ -51,8 +51,8 @@ void MqttManager::connect(int timeout)
 
             // Publier l'état initial
             Config config = configManager.loadConfig();
-            publishBoilerMode(config.boilerMode.c_str());
-            publishBoilerTemperature(config.boilerTemperature);
+            publishBoilerMode(config.boiler.mode.c_str());
+            publishBoilerTemperature(config.boiler.temperature);
         }
         else
         {
@@ -89,7 +89,7 @@ void MqttManager::onMqttMessage(char *topic, byte *payload, unsigned int length)
         if (payloadStr == "auto" || payloadStr == "on" || payloadStr == "off")
         {
             Config configTmp = this->configManager.loadConfig();
-            configTmp.boilerMode = payloadStr.c_str();
+            configTmp.boiler.mode = payloadStr.c_str();
             this->configManager.saveConfig(configTmp);
 
             extern Config config;
@@ -111,7 +111,7 @@ void MqttManager::onMqttMessage(char *topic, byte *payload, unsigned int length)
         if (temp >= 0 && temp <= 80) // Validation de la plage de température
         {
             Config configTmp = this->configManager.loadConfig();
-            configTmp.boilerTemperature = temp;
+            configTmp.boiler.temperature = temp;
             this->configManager.saveConfig(configTmp);
 
             extern Config config;

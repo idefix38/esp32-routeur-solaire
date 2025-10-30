@@ -15,7 +15,7 @@ export default function SolarPage(props: pagePros) {
 
   // Handles the form submission for Solar settings.
     const handleSubmit = async (boilerSettings?: boilerConfig) => {
-      const result = await callApi('/saveSolarSettings', {
+      const result = await callApi('/saveBoilerSettings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({...boilerSettings})
@@ -35,7 +35,7 @@ export default function SolarPage(props: pagePros) {
         </div>
         <div className="px-4 py-5 sm:p-6 bg-gray-100">
           <div className={(loading) ? 'pointer-events-none opacity-50 relative' : ''}>
-            <BoilerForm onSubmit={handleSubmit} loading={loading} boilerSettings={config.value?.boiler}/>
+            <BoilerForm onSubmit={handleSubmit} loading={loading} boilerSettings={config.value?.boiler}  sunRiseMinutes={config.value?.solar?.sunRiseMinutes ?? 6*60} sunSetMinutes={config.value?.solar?.sunSetMinutes ?? 18*60}  />
             {(loading) && (
               <div className="absolute inset-0 flex items-center justify-center z-10">
                 <span className="text-indigo-600 font-semibold text-lg animate-pulse">Chargement...</span>

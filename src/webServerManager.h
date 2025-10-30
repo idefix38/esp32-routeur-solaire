@@ -7,6 +7,7 @@
 #include "sensor.h"
 #include "ConfigManager.h"
 #include "mqttManager.h"
+#include "SolarManager.h"
 
 using namespace ArduinoJson;
 
@@ -17,7 +18,7 @@ public:
     void setupLocalWeb();
     void setupApiRoutes();
     void startServer();
-    void broadcastData(float temperature, float triacOpeningPercentage, String sunrise, String sunset);
+    void broadcastData(float temperature, float triacOpeningPercentage);
 
 private:
     void addFileRoutes(File dir);
@@ -27,6 +28,7 @@ private:
     void handleSaveWifiSettings(AsyncWebServerRequest *request, uint8_t *data, size_t len);
     void handleSaveMqttSettings(AsyncWebServerRequest *request, uint8_t *data, size_t len);
     void handleSaveSolarSettings(AsyncWebServerRequest *request, uint8_t *data, size_t len);
+    void handleSaveBoilerSettings(AsyncWebServerRequest *request, uint8_t *data, size_t len);
     String getContentType(String filename);
 
     ConfigManager &configManager;
