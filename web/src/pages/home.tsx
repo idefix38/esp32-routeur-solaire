@@ -3,6 +3,7 @@ import { Card } from '../component/card';
 import { Thermometer, Zap,Sun } from 'lucide-react';
 import { useConfig } from '../context/configurationContext';
 import { useEsp32WebSocket } from '../hooks/useEsp32WebSocket';
+import { formatMinuteToTime } from '../helper/time';
 
 /**
  * Page for displaying the dashboard with real-time data from the ESP32.
@@ -37,7 +38,7 @@ export default function HomePage(props: pagePros) {
             Icon={Zap} 
           />
           <Card 
-            value={data.sunrise !== undefined && data.sunset !== undefined ? `${data.sunrise} - ${data.sunset}` : "..."} 
+            value={config?.solar.sunRiseMinutes !== undefined && config.solar.sunSetMinutes !== undefined ? `${formatMinuteToTime( config.solar.sunRiseMinutes)} - ${formatMinuteToTime(config.solar.sunSetMinutes)}` : "..."} 
             label="Lever / Coucher"
             Icon={Sun} 
           />

@@ -27,10 +27,10 @@ TaskHandle_t SignalProcessingTaskHandle;
 ConfigManager configManager;
 Config config;
 WifiManager wifiManager;
+SolarManager *solarManager = nullptr;
 MqttManager mqttManager(configManager);
 WebServerManager web(configManager, mqttManager);
 ShellyEm *shelly = nullptr;
-SolarManager *solarManager = nullptr;
 
 // Shared Data
 volatile float lastTemperature = 0;        // Dernière température mesurée
@@ -56,16 +56,16 @@ void signalProcessingTask(void *pvParameters)
         unsigned long now = millis();
 
         xSemaphoreTake(configMutex, portMAX_DELAY);
-        std::string mode = config.boilerMode;
-        int boilerTemperature = config.boilerTemperature;
+        std::string mode = config.boiler.mode;
+        int boilerTemperature = config.boiler.temperature;
         xSemaphoreGive(configMutex);
 
         // Determine si on est entre le lever et le coucher du soleil
         struct tm localNow;
         if (getLocalTime(&localNow))
         {
-            struct tm sunrise = solarManager->calculateSunrise(config.latitude, config.longitude);
-            struct tm sunset = solarManager->calculateSunset(config.latitude, config.longitude);
+            struct tm sunrise = solarManager->calculateSunrise(config.solar.latitude, config.solar.longitude);
+            struct tm sunset = solarManager->calculateSunset(config.solar.latitude, config.solar.longitude);
 
             nowMinutes = localNow.tm_hour * 60 + localNow.tm_min;
             sunriseMinutes = sunrise.tm_hour * 60 + sunrise.tm_min;
@@ -73,11 +73,11 @@ void signalProcessingTask(void *pvParameters)
             if (nowMinutes < sunriseMinutes)
             {
                 // Remise à zero de température atteinte, avant le lever du soleil
-                temperatureReached = true;
+                temperatureReached = false;
             }
         }
 
-        if (lastTemperature > config.boilerTemperature || temperatureReached)
+        if (lastTemperature > config.boiler.temperature || temperatureReached)
         {
             // Le chauffe eau est chaud, plus besoin de régulation
             // Même si la température redescent en dessous de la température de consigne,
@@ -128,13 +128,15 @@ void communicationTask(void *pvParameters)
     Serial.println("Communication Task started on core 1");
     static unsigned long lastDiscoveryTime = 0;
     static unsigned long lastTempTime = 0;
+    static unsigned long lastMqttTime = 0;
+    static unsigned long lastBroadCastweb = 0;
 
     for (;;)
     {
         unsigned long now = millis();
 
         xSemaphoreTake(configMutex, portMAX_DELAY);
-        std::string mqttServer = config.mqttServer;
+        std::string mqttServer = config.mqtt.server;
         xSemaphoreGive(configMutex);
 
         if (reboot)
@@ -142,6 +144,19 @@ void communicationTask(void *pvParameters)
             reboot = false;
             delay(3000);
             ESP.restart();
+        }
+
+        // Lecture de la température toutes les 30 secondes
+        if (now - lastTempTime > 30 * 1000)
+        {
+            lastTemperature = getTemperature();
+            lastTempTime = now;
+        }
+        // Brocast des donnée vers l'app web
+        if (now - lastBroadCastweb > 1000)
+        {
+            web.broadcastData(lastTemperature, triacOpeningPercentage);
+            lastBroadCastweb = now;
         }
 
         if (!mqttServer.empty())
@@ -158,15 +173,11 @@ void communicationTask(void *pvParameters)
                 mqttManager.sendDiscovery();
                 lastDiscoveryTime = now;
             }
-
-            if (now - lastTempTime > 5000)
+            // Envoi des données à home assistant toutes les 10 secondes
+            if (now - lastMqttTime > 10 * 1000)
             {
-                lastTemperature = getTemperature();
                 mqttManager.sendData(lastTemperature, triacOpeningPercentage);
-                String sunriseStr = String(sunriseMinutes / 60) + "h" + String(sunriseMinutes % 60);
-                String sunsetStr = String(sunsetMinutes / 60) + "h" + String(sunsetMinutes % 60);
-                web.broadcastData(lastTemperature, triacOpeningPercentage, sunriseStr, sunsetStr);
-                lastTempTime = now;
+                lastMqttTime = now;
             }
         }
 
@@ -197,18 +208,35 @@ void setup()
 
     // Log config
     JsonDocument doc;
-    doc["wifiSSID"] = config.wifiSSID;
-    doc["mqttServer"] = config.mqttServer;
-    doc["mqttPort"] = config.mqttPort;
-    doc["mqttUsername"] = config.mqttUsername;
-    doc["mqttTopic"] = config.mqttTopic;
-    doc["shellyEmIp"] = config.shellyEmIp;
-    doc["shellyEmChannel"] = config.shellyEmChannel;
-    doc["boilerMode"] = config.boilerMode;
-    doc["boilerTemperature"] = config.boilerTemperature;
-    doc["latitude"] = config.latitude;
-    doc["longitude"] = config.longitude;
-    doc["timezone"] = config.timeZone;
+    JsonObject wifiObj = doc["wifi"].to<JsonObject>();
+    wifiObj["ssid"] = config.wifi.ssid;
+
+    JsonObject mqttObj = doc["mqtt"].to<JsonObject>();
+    mqttObj["server"] = config.mqtt.server;
+    mqttObj["port"] = config.mqtt.port;
+    mqttObj["username"] = config.mqtt.username;
+    mqttObj["topic"] = config.mqtt.topic;
+
+    JsonObject shellyObj = doc["shellyEm"].to<JsonObject>();
+    shellyObj["ip"] = config.shellyEm.ip;
+    shellyObj["channel"] = config.shellyEm.channel;
+
+    JsonObject boilerObj = doc["boiler"].to<JsonObject>();
+    boilerObj["mode"] = config.boiler.mode;
+    boilerObj["temperature"] = config.boiler.temperature;
+    JsonArray boilerPeriods = boilerObj["periods"].to<JsonArray>();
+    for (const auto &p : config.boiler.periods)
+    {
+        JsonObject periodObj = boilerPeriods.add<JsonObject>();
+        periodObj["start"] = p.start;
+        periodObj["end"] = p.end;
+        periodObj["mode"] = p.mode;
+    }
+
+    JsonObject solarObj = doc["solar"].to<JsonObject>();
+    solarObj["latitude"] = config.solar.latitude;
+    solarObj["longitude"] = config.solar.longitude;
+    solarObj["timeZone"] = config.solar.timeZone;
 
     String jsonConfig;
     serializeJsonPretty(doc, jsonConfig);
@@ -218,7 +246,7 @@ void setup()
 
     // Setup WiFi
     wifiManager.setupAccessPoint("ESP32_WROOM_SOLAR_ROUTER");
-    wifiManager.connect(config.wifiSSID.c_str(), config.wifiPassword.c_str(), 5);
+    wifiManager.connect(config.wifi.ssid.c_str(), config.wifi.password.c_str(), 5);
 
     // Setup LittleFS
     setupSpiffs();
@@ -230,9 +258,9 @@ void setup()
     setupSensor();
 
     // Setup Shelly
-    if (config.shellyEmIp != "")
+    if (config.shellyEm.ip != "")
     {
-        shelly = new ShellyEm(String(config.shellyEmIp.c_str()), String(config.shellyEmChannel.c_str()));
+        shelly = new ShellyEm(String(config.shellyEm.ip.c_str()), String(config.shellyEm.channel.c_str()));
     }
 
     // Setup Solar Manager
@@ -241,7 +269,7 @@ void setup()
 
     // Synchronize time with NTP server for Paris timezone
     Serial.println("[-] Synchronisation Date/Heure NTP server time.google.com");
-    configTzTime(getPosixTimezone(config.timeZone.c_str()), "time.google.com");
+    configTzTime(getPosixTimezone(config.solar.timeZone.c_str()), "time.google.com");
 
     // Récupère la date et l'heure locale
     struct tm timeinfo_local;
@@ -253,8 +281,8 @@ void setup()
         Serial.println(timeStr);
 
         // Calcul lever et coucher du soleil
-        struct tm sunrise = solarManager->calculateSunrise(config.latitude, config.longitude);
-        struct tm sunset = solarManager->calculateSunset(config.latitude, config.longitude);
+        struct tm sunrise = solarManager->calculateSunrise(config.solar.latitude, config.solar.longitude);
+        struct tm sunset = solarManager->calculateSunset(config.solar.latitude, config.solar.longitude);
 
         if (sunrise.tm_year != -1)
         {
@@ -280,9 +308,9 @@ void setup()
     }
 
     // Setup MQTT
-    if (config.mqttServer != "")
+    if (config.mqtt.server != "")
     {
-        mqttManager.setup(config.mqttServer.c_str(), config.mqttPort, config.mqttUsername.c_str(), config.mqttPassword.c_str(), config.mqttTopic.c_str());
+        mqttManager.setup(config.mqtt.server.c_str(), config.mqtt.port, config.mqtt.username.c_str(), config.mqtt.password.c_str(), config.mqtt.topic.c_str());
     }
 
     // Interrupts (should be safe, they are short)

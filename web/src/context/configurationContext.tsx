@@ -5,7 +5,7 @@ import { useEsp32Api } from "../hooks/useEsp32Api";
 /**
  *  Parmètres de configuration du wifi
  */
-export interface wifiConfig {
+export type wifiConfig= {
     ssid: string;
     password: string;
 }
@@ -13,7 +13,7 @@ export interface wifiConfig {
 /**
  *  Parmètres de configuration du mqtt
  */
-export interface mqttConfig {
+export type mqttConfig= {
     server: string;
     port: number;
     username: string;
@@ -24,7 +24,7 @@ export interface mqttConfig {
 /**
  *  Paramètres de configuration du shellyEm
  */
-export interface shellyEmConfig {
+export type shellyEmConfig ={
     ip: string;
     channel: string;
 }
@@ -32,23 +32,36 @@ export interface shellyEmConfig {
 /**
  *  Paramètres de configuration du chauffe eau
  */
-export interface boilerConfig {
+export type boilerConfig= {
     mode: string; // Auto, On ou Off  Auto = Routeur solaire , On = Marche forcée
     temperature?: number; // Températue cible du chauffe eau
+    periods?: period[]; // List of heating periods    
 }
 
 
-export interface solarConfig {
+export type solarConfig= {
     latitude : number;
     longitude : number; 
-    timeZone : string;   
+    timeZone : string;       
+    sunRiseMinutes? : number;
+    sunSetMinutes? : number;    
+}
+
+export type period= {    
+    start: number; // Heure de début de la période en minutes    
+    startSunrise?: boolean; // La période commence au lever du soleil
+    startSunset?: boolean;  // La période commence au coucher du soleil
+    end: number; // Heure de fin de la période en minutes
+    endSunrise?: boolean; // La période se termine au lever du soleil
+    endSunset?: boolean;  // La période se termine au coucher du soleil
+    mode: 'auto' | 'on'; // Mode de la période : 'auto' pour suivre le soleil, 'on' pour marche forcée
 }
 
 
 /**
  *  Paramètres de configuration
  */
-export interface config {
+export type config ={
     wifi: wifiConfig;
     mqtt: mqttConfig;
     shellyEm: shellyEmConfig;

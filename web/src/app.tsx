@@ -1,5 +1,5 @@
 import { Navbar } from './component/navBar'
-import { lazy, LocationProvider, Router } from 'preact-iso';
+import { LocationProvider, Router, lazy } from 'preact-iso';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { Toast } from './component/Toast';
 import { ConfigProvider } from './context/configurationContext';
@@ -8,6 +8,8 @@ const Home = lazy(() => import('./pages/home'));
 const WifiPage = lazy(() => import('./pages/wifi'));
 const MqttPage  = lazy(() => import('./pages/mqtt'));
 const SolarPage  = lazy(() => import('./pages/solar'));
+const BoilerPage = lazy(()=>import('./pages/boiler'))
+
 
 export interface pagePros {
   path : string
@@ -26,6 +28,7 @@ export function App(props: any) {
           <WifiPage path="/wifi" />
           <MqttPage path="/mqtt" />
           <SolarPage path="/solar" />
+          <BoilerPage path="/boiler"/>
           <NotFound default />
         </Router>
       </ToastProvider>

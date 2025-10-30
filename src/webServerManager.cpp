@@ -1,5 +1,6 @@
 #include "WebServerManager.h"
 #include "mqttManager.h"
+#include "SolarManager.h"
 
 // Constructeur
 WebServerManager::WebServerManager(ConfigManager &configManager, MqttManager &mqttManager)
@@ -39,28 +40,38 @@ void WebServerManager::handleGetConfig(AsyncWebServerRequest *request)
 
     JsonDocument doc;
     JsonObject wifiObj = doc["wifi"].to<JsonObject>();
-    wifiObj["ssid"] = config.wifiSSID;
+    wifiObj["ssid"] = config.wifi.ssid;
     wifiObj["password"] = "********";
 
     JsonObject mqttObj = doc["mqtt"].to<JsonObject>();
-    mqttObj["server"] = config.mqttServer;
-    mqttObj["port"] = config.mqttPort;
-    mqttObj["username"] = config.mqttUsername;
+    mqttObj["server"] = config.mqtt.server;
+    mqttObj["port"] = config.mqtt.port;
+    mqttObj["username"] = config.mqtt.username;
     mqttObj["password"] = "********";
-    mqttObj["topic"] = config.mqttTopic;
+    mqttObj["topic"] = config.mqtt.topic;
 
     JsonObject shellyObj = doc["shellyEm"].to<JsonObject>();
-    shellyObj["ip"] = config.shellyEmIp;
-    shellyObj["channel"] = config.shellyEmChannel;
+    shellyObj["ip"] = config.shellyEm.ip;
+    shellyObj["channel"] = config.shellyEm.channel;
 
     JsonObject boilerObj = doc["boiler"].to<JsonObject>();
-    boilerObj["mode"] = config.boilerMode;
-    boilerObj["temperature"] = config.boilerTemperature;
+    boilerObj["mode"] = config.boiler.mode;
+    boilerObj["temperature"] = config.boiler.temperature;
+    JsonArray boilerPeriods = boilerObj["periods"].to<JsonArray>();
+    for (const auto &p : config.boiler.periods)
+    {
+        JsonObject periodObj = boilerPeriods.add<JsonObject>();
+        periodObj["start"] = p.start;
+        periodObj["end"] = p.end;
+        periodObj["mode"] = p.mode;
+    }
 
     JsonObject solarObj = doc["solar"].to<JsonObject>();
-    solarObj["latitude"] = config.latitude;
-    solarObj["longitude"] = config.longitude;
-    solarObj["timeZone"] = config.timeZone;
+    solarObj["latitude"] = config.solar.latitude;
+    solarObj["longitude"] = config.solar.longitude;
+    solarObj["timeZone"] = config.solar.timeZone;
+    solarObj["sunRiseMinutes"] = config.solar.sunRiseMinutes;
+    solarObj["sunSetMinutes"] = config.solar.sunSetMinutes;
 
     String jsonString;
     serializeJson(doc, jsonString);
@@ -82,18 +93,12 @@ void WebServerManager::handleSaveWifiSettings(AsyncWebServerRequest *request, ui
         return;
     }
 
-    const char *ssid = doc["ssid"] | "";
-    const char *password = doc["password"] | "";
-
     Config config = this->configManager.loadConfig();
-    config.wifiSSID = ssid;
-    if (password == "" || strcmp(password, "********") == 0)
+    config.wifi.ssid = doc["ssid"] | "";
+    const char *password = doc["password"] | "";
+    if (password != "" && strcmp(password, "********") != 0)
     {
-        // Ne pas modifier le mot de passe
-    }
-    else
-    {
-        config.wifiPassword = password;
+        config.wifi.password = password;
     }
     this->configManager.saveConfig(config);
 
@@ -114,25 +119,15 @@ void WebServerManager::handleSaveMqttSettings(AsyncWebServerRequest *request, ui
         return;
     }
 
-    const char *server = doc["server"] | "";
-    const char *topic = doc["topic"] | "";
-    const char *mqtt_username = doc["username"] | "";
-    const char *mqtt_password = doc["password"] | "";
-
-    int mqtt_port = doc["port"] | 1883;
-
     Config config = this->configManager.loadConfig();
-    config.mqttServer = server;
-    config.mqttPort = mqtt_port;
-    config.mqttTopic = topic;
-    config.mqttUsername = mqtt_username;
-    if (mqtt_password == "" || strcmp(mqtt_password, "********") == 0)
+    config.mqtt.server = doc["server"] | "";
+    config.mqtt.port = doc["port"] | 1883;
+    config.mqtt.topic = doc["topic"] | "";
+    config.mqtt.username = doc["username"] | "";
+    const char *password = doc["password"] | "";
+    if (password != "" && strcmp(password, "********") != 0)
     {
-        // Ne pas modifier le mot de passe
-    }
-    else
-    {
-        config.mqttPassword = mqtt_password;
+        config.mqtt.password = password;
     }
     this->configManager.saveConfig(config);
 
@@ -153,37 +148,74 @@ void WebServerManager::handleSaveSolarSettings(AsyncWebServerRequest *request, u
         return;
     }
 
-    const char *shellyEmIp = doc["ip"] | "";
-    const char *shellyEmChannel = doc["channel"] | "";
-    const char *boilerMode = doc["mode"] | "Auto";
-    int temperature = doc["temperature"] | 50;
-    float latitude = doc["latitude"] | 48.8566;
-    float longitude = doc["longitude"] | 2.3522;
-    const char *timeZone = doc["timeZone"] | "Europe/Paris";
+    Config configTmp = this->configManager.loadConfig();
 
-    if (strlen(shellyEmIp) == 0 || strlen(shellyEmChannel) == 0)
+    if (doc.containsKey("shellyEm"))
     {
-        Serial.println("Erreur : shellyEmIp ou shellyEmChannel vide !");
-        request->send(400, "application/json", "{\"status\":\"Invalid Shelly EM settings\"}");
+        configTmp.shellyEm.ip = doc["shellyEm"]["ip"] | "";
+        configTmp.shellyEm.channel = doc["shellyEm"]["channel"] | "0";
+    }
+
+    if (doc.containsKey("solar"))
+    {
+        configTmp.solar.latitude = doc["solar"]["latitude"] | 48.8566;
+        configTmp.solar.longitude = doc["solar"]["longitude"] | 2.3522;
+        configTmp.solar.timeZone = doc["solar"]["timeZone"] | "Europe/Paris";
+    }
+
+    this->configManager.saveConfig(configTmp);
+
+    extern Config config;
+    config = configTmp;
+
+    this->mqttManager.publishBoilerMode(config.boiler.mode.c_str());
+    this->mqttManager.publishBoilerTemperature(config.boiler.temperature);
+
+    request->send(200, "application/json", "{\"status\":\"success\"}");
+}
+
+void WebServerManager::handleSaveBoilerSettings(AsyncWebServerRequest *request, uint8_t *data, size_t len)
+{
+    Serial.println(" POST: /saveBoilerSettings");
+
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, data, len);
+
+    if (error)
+    {
+        Serial.println("Erreur de parsing du JSON !");
+        request->send(400, "application/json", "{\"status\":\"Invalid JSON\"}");
         return;
     }
 
     Config configTmp = this->configManager.loadConfig();
-    configTmp.shellyEmIp = shellyEmIp;
-    configTmp.shellyEmChannel = shellyEmChannel;
-    configTmp.boilerMode = boilerMode;
-    configTmp.boilerTemperature = temperature;
-    configTmp.latitude = latitude;
-    configTmp.longitude = longitude;
-    configTmp.timeZone = timeZone;
+
+    configTmp.boiler.mode = doc["mode"] | "auto";
+    configTmp.boiler.temperature = doc["temperature"] | 50;
+    if (doc.containsKey("periods"))
+    {
+        configTmp.boiler.periods.clear();
+        for (JsonObject p : doc["periods"].as<JsonArray>())
+        {
+            Period period;
+            period.start = p["start"];
+            period.end = p["end"];
+            period.mode = p["mode"] | "auto";
+            // period.startSunrise = p["startSunrise"] | false;
+            // period.startSunset = p["startSunset"] | false;
+            // period.endSunrise = p["endSunrise"] | false;
+            // period.endSunset = p["endSunset"] | false;
+            configTmp.boiler.periods.push_back(period);
+        }
+    }
+
     this->configManager.saveConfig(configTmp);
 
-    // Met à jour la variable globale config pour prise en compte immédiate dans loop()
     extern Config config;
     config = configTmp;
-    // Met à jour le mode du chauffe-eau dans le gestionnaire MQTT
-    this->mqttManager.publishBoilerMode(boilerMode);
-    this->mqttManager.publishBoilerTemperature(temperature);
+
+    this->mqttManager.publishBoilerMode(config.boiler.mode.c_str());
+    this->mqttManager.publishBoilerTemperature(config.boiler.temperature);
 
     request->send(200, "application/json", "{\"status\":\"success\"}");
 }
@@ -238,12 +270,8 @@ void WebServerManager::setupApiRoutes()
               { handleSaveMqttSettings(request, data, len); });
     server.on("/saveSolarSettings", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
               { handleSaveSolarSettings(request, data, len); });
-
-    // server.on("/getData", HTTP_GET, [](AsyncWebServerRequest *request)
-    //           {
-    //                   extern volatile float lastTemperature;
-    //                   extern volatile float triacOpeningPercentage;
-    //                   request->send(200, "application/json", "{\"temperature\":\"" + String(lastTemperature) + ", \"triacOpeningPercentage\":\"" + String(triacOpeningPercentage) + "\"}"); });
+    server.on("/saveBoilerSettings", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
+              { handleSaveBoilerSettings(request, data, len); });
 
     server.on("/getConfig", HTTP_GET, [this](AsyncWebServerRequest *request)
               { handleGetConfig(request); });
@@ -264,13 +292,11 @@ void WebServerManager::startServer()
     Serial.println("[-] Serveur Web Ok");
 }
 
-void WebServerManager::broadcastData(float temperature, float triacOpeningPercentage, String sunrise, String sunset)
+void WebServerManager::broadcastData(float temperature, float triacOpeningPercentage)
 {
     JsonDocument doc;
     doc["temperature"] = temperature;
     doc["triacOpeningPercentage"] = triacOpeningPercentage;
-    doc["sunrise"] = sunrise;
-    doc["sunset"] = sunset;
 
     String currentJson;
     serializeJson(doc, currentJson);
