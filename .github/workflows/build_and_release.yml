@@ -1,9 +1,8 @@
 name: CI/CD ESP32 OTA Release
 
 on:
-  push:
-    tags:
-      - "v*.*.*" # Déclenche le workflow lors de la création d'un tag comme v1.0.0
+  release:
+    types: [created]
 
 jobs:
   build_and_release:
@@ -67,7 +66,7 @@ jobs:
             ${{ steps.assets.outputs.FW_BIN }}
             ${{ steps.assets.outputs.FS_BIN }}
           draft: false
-          prerelease: false
+          prerelease: ${{ github.event.release.prerelease }}
           name: Release ${{ github.ref_name }}
           body: |
             ## Nouvelle version : ${{ github.ref_name }}
