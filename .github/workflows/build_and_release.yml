@@ -3,7 +3,7 @@ name: CI/CD ESP32 OTA Release
 on:
   workflow_dispatch: # Permet de lancer le workflow manuellement
   release:
-    types: [created]
+    types: [published]
     tags:
       - "V*.*.*" # Déclenche sur les tags comme V1.0.0
       - "v*.*.*" # Déclenche aussi sur les tags comme v1.0.0
@@ -64,6 +64,7 @@ jobs:
 
       # --- Étape 5 : Création de la Release et Upload des Assets ---
       - name: 📤 Création de la GitHub Release et Upload des Assets
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
           files: |
