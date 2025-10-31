@@ -1,4 +1,4 @@
-#include "SolarManager.h"
+#include "solarManager.h"
 #include "Arduino.h"
 
 SolarManager *SolarManager::instance = nullptr;

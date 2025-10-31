@@ -1,4 +1,4 @@
-#include "WifiManager.h"
+#include "wifiManager.h"
 #include <ESPmDNS.h>
 #include <WiFiUdp.h>
 

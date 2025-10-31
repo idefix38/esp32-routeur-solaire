@@ -1,12 +1,12 @@
 #include <Arduino.h>
-#include "WifiManager.h"
-#include "MqttManager.h"
+#include "wifiManager.h"
+#include "mqttManager.h"
 #include "files.h"
 #include "webserverManager.h"
 #include "sensor.h"
 #include "configManager.h"
 #include "shellyEm.h"
-#include "SolarManager.h"
+#include "solarManager.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <time.h>

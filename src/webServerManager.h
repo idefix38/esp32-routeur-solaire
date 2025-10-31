@@ -7,7 +7,7 @@
 #include "sensor.h"
 #include "configManager.h"
 #include "mqttManager.h"
-#include "SolarManager.h"
+#include "solarManager.h"
 
 using namespace ArduinoJson;
 

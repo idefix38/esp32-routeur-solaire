@@ -1,6 +1,6 @@
-#include "WebServerManager.h"
+#include "webServerManager.h"
 #include "mqttManager.h"
-#include "SolarManager.h"
+#include "solarManager.h"
 
 // Constructeur
 WebServerManager::WebServerManager(ConfigManager &configManager, MqttManager &mqttManager)

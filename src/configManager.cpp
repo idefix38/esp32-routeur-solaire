@@ -1,6 +1,6 @@
 #include "configManager.h"
 #include <Arduino.h>
-#include "SolarManager.h"
+#include "solarManager.h"
 #include <time.h>
 // Constructeur
 ConfigManager::ConfigManager()
