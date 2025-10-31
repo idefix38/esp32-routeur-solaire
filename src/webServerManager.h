@@ -5,7 +5,7 @@
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include "sensor.h"
-#include "ConfigManager.h"
+#include "configManager.h"
 #include "mqttManager.h"
 #include "SolarManager.h"
 

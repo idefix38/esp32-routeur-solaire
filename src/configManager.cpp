@@ -1,4 +1,4 @@
-#include "ConfigManager.h"
+#include "configManager.h"
 #include <Arduino.h>
 #include "SolarManager.h"
 #include <time.h>
