@@ -1,0 +1,75 @@
+name: CI/CD ESP32 OTA Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*" # Déclenche le workflow lors de la création d'un tag comme v1.0.0
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout du code
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      # --- Étape 1 : Préparation de l'environnement ---
+      - name: 🛠️ Préparation du Node.js (pour la partie web)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: ⚙️ Configuration de PlatformIO Core (pour C++)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: 📦 Installation de PlatformIO
+        run: pip install platformio
+
+      # --- Étape 2 : Compilation du File System (Web) ---
+      - name: 📦 Installation des dépendances NPM
+        run: npm install
+
+      - name: 🌐 Compilation de la partie web (Génère les assets dans /data)
+        run: npm run build
+
+      - name: 💾 Création de l'image binaire du File System (littlefs.bin / spiffs.bin)
+        # PlatformIO prend le contenu de /data et crée le binaire FS dans .pio/build/esp32dev/
+        run: pio run -e esp32dev -t buildfs
+
+      # --- Étape 3 : Compilation du Firmware C++ ---
+      - name: 🔨 Compilation du Firmware C++
+        run: pio run -e esp32dev # Changez 'esp32dev' si besoin
+
+      # --- Étape 4 : Nommage et préparation des Assets ---
+      - name: 🏷️ Définition des noms des fichiers binaires
+        id: assets
+        run: |
+          # Récupérer la version à partir du tag
+          VERSION="${GITHUB_REF##*/}"
+          FW_BIN="firmware-${VERSION}.bin"
+          FS_BIN="web-filesystem-${VERSION}.bin"
+          echo "FW_BIN=$FW_BIN" >> $GITHUB_OUTPUT
+          echo "FS_BIN=$FS_BIN" >> $GITHUB_OUTPUT
+
+          # Renommage des fichiers compilés pour la clarté
+          cp .pio/build/esp32dev/firmware.bin $FW_BIN
+          # Assurez-vous que le nom du FS .bin est correct (souvent littlefs.bin, ou spiffs.bin)
+          cp .pio/build/esp32dev/littlefs.bin $FS_BIN
+
+      # --- Étape 5 : Création de la Release et Upload des Assets ---
+      - name: 📤 Création de la GitHub Release et Upload des Assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ${{ steps.assets.outputs.FW_BIN }}
+            ${{ steps.assets.outputs.FS_BIN }}
+          draft: false
+          prerelease: false
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## Nouvelle version : ${{ github.ref_name }}
+
+            Firmware et File System pour mise à jour OTA.
