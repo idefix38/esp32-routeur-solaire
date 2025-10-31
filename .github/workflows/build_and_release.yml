@@ -1,8 +1,12 @@
 name: CI/CD ESP32 OTA Release
 
 on:
+  workflow_dispatch: # Permet de lancer le workflow manuellement
   release:
     types: [created]
+    tags:
+      - "V*.*.*" # Déclenche sur les tags comme V1.0.0
+      - "v*.*.*" # Déclenche aussi sur les tags comme v1.0.0
 
 jobs:
   build_and_release:
