@@ -10,6 +10,25 @@
 const char *GITHUB_REPO = "idefix38/esp32-routeur-solaire";
 const char *GITHUB_API_URL = "https://api.github.com/repos/idefix38/esp32-routeur-solaire/releases/latest";
 
+const char *github_root_ca = R"EOF(
+-----BEGIN CERTIFICATE-----
+MIICjzCCAhWgAwIBAgIQXIuZxVqUxdJxVt7NiYDMJjAKBggqhkjOPQQDAzCBiDEL
+MAkGA1UEBhMCVVMxEzARBgNVBAgTCk5ldyBKZXJzZXkxFDASBgNVBAcTC0plcnNl
+eSBDaXR5MR4wHAYDVQQKExVUaGUgVVNFUlRSVVNUIE5ldHdvcmsxLjAsBgNVBAMT
+JVVTRVJUcnVzdCBFQ0MgQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwHhcNMTAwMjAx
+MDAwMDAwWhcNMzgwMTE4MjM1OTU5WjCBiDELMAkGA1UEBhMCVVMxEzARBgNVBAgT
+Ck5ldyBKZXJzZXkxFDASBgNVBAcTC0plcnNleSBDaXR5MR4wHAYDVQQKExVUaGUg
+VVNFUlRSVVNUIE5ldHdvcmsxLjAsBgNVBAMTJVVTRVJUcnVzdCBFQ0MgQ2VydGlm
+aWNhdGlvbiBBdXRob3JpdHkwdjAQBgcqhkjOPQIBBgUrgQQAIgNiAAQarFRaqflo
+I+d61SRvU8Za2EurxtW20eZzca7dnNYMYf3boIkDuAUU7FfO7l0/4iGzzvfUinng
+o4N+LZfQYcTxmdwlkWOrfzCjtHDix6EznPO/LlxTsV+zfTJ/ijTjeXmjQjBAMB0G
+A1UdDgQWBBQ64QmG1M8ZwpZ2dEl23OA1xmNjmjAOBgNVHQ8BAf8EBAMCAQYwDwYD
+VR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAwNoADBlAjA2Z6EWCNzklwBBHU6+4WMB
+zzuqQhFkoJ2UOQIReVx7Hfpkue4WQrO/isIJxOzksU0CMQDpKmFHjFJKS04YcPbW
+RNZu9YO6bVi9JNlWSOrvxKJGgYhqOkbRqZtNyWHa0V1Xahg=
+-----END CERTIFICATE-----
+)EOF";
+
 UpdateManager::UpdateManager() {}
 
 /**
@@ -48,8 +67,7 @@ String UpdateManager::checkForUpdates()
 {
     // Crée un client WiFi sécurisé pour la requête HTTPS
     WiFiClientSecure client;
-    // client.setCACert(github_root_ca);
-    client.setInsecure();
+    client.setCACert(github_root_ca);
 
     HTTPClient http;
     Serial.println("[Update] Checking for new version on GitHub...");
@@ -65,18 +83,25 @@ String UpdateManager::checkForUpdates()
         return "{}";
     }
 
-    // Parse la réponse JSON (limité à 2048 octets pour économiser la mémoire)
+    // Filter to extract only necessary fields from the JSON response
+    JsonDocument filter;
+    filter["tag_name"] = true;
+    filter["assets"][0]["name"] = true;
+    filter["assets"][0]["browser_download_url"] = true;
+    filter["assets"][0]["digest"] = true;
+
+    // Parse the JSON response with the filter
     JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, http.getStream());
+    DeserializationError error = deserializeJson(doc, http.getStream(), DeserializationOption::Filter(filter));
+    http.end(); // End HTTP connection as soon as possible
+
     if (error)
     {
         Serial.printf("[Update] deserializeJson() failed: %s\n", error.c_str());
-        http.end();
         return "{}";
     }
 
     String latest_version = doc["tag_name"];
-    http.end();
 
     // Compare la version de la release avec la version actuelle du firmware
     if (compareVersions(latest_version, FIRMWARE_VERSION) <= 0)
@@ -88,72 +113,54 @@ String UpdateManager::checkForUpdates()
     Serial.printf("[Update] New version available: %s\n", latest_version.c_str());
 
     // Construit la réponse JSON pour le frontend
-    JsonObject response = doc.to<JsonObject>();
+    JsonDocument responseDoc;
+    JsonObject response = responseDoc.to<JsonObject>();
     response["new_version"] = latest_version;
 
-    // Cherche les URLs des assets (fichiers .bin et .md5) dans la release
+    // Cherche les URLs des assets (fichiers .bin) et le sha256 dans la release
     JsonArray assets = doc["assets"];
+    const String PREFIXE = "sha256:";
+
     for (JsonObject asset : assets)
     {
         String name = asset["name"];
         String url = asset["browser_download_url"];
+        String sha256 = asset["digest"].as<String>().substring(PREFIXE.length());
 
         if (name.endsWith(".bin"))
         {
             if (name.startsWith("firmware-"))
             {
                 response["firmware_url"] = url;
+                response["firmware_sha256"] = sha256;
             }
             else if (name.startsWith("web-filesystem-"))
             {
-                response["spiffs_url"] = url;
-            }
-        }
-        else if (name.endsWith(".sha256"))
-        { // On cherche maintenant le .sha256
-            if (name.startsWith("firmware-"))
-            {
-                response["firmware_sha256_url"] = url;
-            }
-            else if (name.startsWith("web-filesystem-"))
-            {
-                response["spiffs_sha256_url"] = url;
+                response["filesystem_url"] = url;
+                response["filesystem_sha256"] = sha256;
             }
         }
     }
 
     String jsonResponse;
-    serializeJson(response, jsonResponse);
+    serializeJson(responseDoc, jsonResponse);
     return jsonResponse;
 }
 
-bool UpdateManager::performUpdate(const String &url, const String &sha256Url, int command)
+bool UpdateManager::performUpdate(const String &url, const String &sha256, int command)
 {
     HTTPClient httpClient;
 
-    // --- Téléchargement du checksum SHA256 ---
-    httpClient.begin(sha256Url);
-    int httpCode = httpClient.GET();
-    if (httpCode != HTTP_CODE_OK)
+    Serial.printf("[Update] Expected SHA256: %s\n", sha256.c_str());
+    if (sha256.length() != 64) // SHA256 is 64 hex characters
     {
-        Serial.printf("[Update] Failed to download SHA256 checksum file: %s\n", httpClient.errorToString(httpCode).c_str());
-        httpClient.end();
+        Serial.printf("[Update] Invalid SHA256 length: %d\n", sha256.length());
         return false;
     }
-    String expectedSha256 = httpClient.getString();
-    httpClient.end();
-    expectedSha256.trim();
-
-    if (expectedSha256.length() != 64) // SHA256 is 64 hex characters
-    {
-        Serial.printf("[Update] Invalid SHA256 length: %d\n", expectedSha256.length());
-        return false;
-    }
-    Serial.printf("[Update] Expected SHA256: %s\n", expectedSha256.c_str());
 
     // --- Téléchargement et flashage du binaire ---
     httpClient.begin(url);
-    httpCode = httpClient.GET();
+    int httpCode = httpClient.GET();
     if (httpCode != HTTP_CODE_OK)
     {
         Serial.printf("[Update] Failed to download binary file: %s\n", httpClient.errorToString(httpCode).c_str());
@@ -168,9 +175,6 @@ bool UpdateManager::performUpdate(const String &url, const String &sha256Url, in
         httpClient.end();
         return false;
     }
-
-    // Remove Update.setMD5 as we will do manual SHA256 verification
-    // Update.setMD5(md5.c_str());
 
     // Écriture du binaire en streaming pour économiser la RAM
     WiFiClient *stream = httpClient.getStreamPtr();
@@ -221,7 +225,7 @@ bool UpdateManager::performUpdate(const String &url, const String &sha256Url, in
 
     Serial.printf("[Update] Calculated SHA256: %s\n", calculatedSha256Hex);
 
-    if (expectedSha256.equalsIgnoreCase(calculatedSha256Hex))
+    if (sha256.equalsIgnoreCase(calculatedSha256Hex))
     {
         Serial.println("[Update] SHA256 checksum matches.");
     }
@@ -248,15 +252,35 @@ bool UpdateManager::performUpdate(const String &url, const String &sha256Url, in
 /**
  * @brief Lance le processus de mise à jour OTA.
  */
-void UpdateManager::startUpdate(const String &firmwareUrl, const String &firmwareSha256Url, const String &spiffsUrl, const String &spiffsSha256Url)
+void UpdateManager::startUpdate()
 {
+    String jsonResponse = checkForUpdates();
+    if (jsonResponse == "{}")
+    {
+        Serial.println("[Update] No new version available or check failed.");
+        return;
+    }
+
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, jsonResponse);
+    if (error)
+    {
+        Serial.printf("[Update] deserializeJson() failed: %s\n", error.c_str());
+        return;
+    }
+
+    const char *firmwareUrl = doc["firmware_url"];
+    const char *firmwareSha256 = doc["firmware_sha256"];
+    const char *filesystemUrl = doc["filesystem_url"];
+    const char *filesystemSha256 = doc["filesystem_sha256"];
+
     Serial.println("[Update] Starting OTA update...");
 
-    // 1. Mise à jour du système de fichiers (SPIFFS)
-    if (spiffsUrl.length() > 0)
+    // 1. Mise à jour du système de fichiers
+    if (filesystemUrl && filesystemSha256)
     {
         Serial.println("[Update] Updating filesystem...");
-        if (!performUpdate(spiffsUrl, spiffsSha256Url, U_SPIFFS))
+        if (!performUpdate(filesystemUrl, filesystemSha256, U_SPIFFS))
         {
             Serial.println("[Update] Filesystem update failed!");
             return; // Arrêter si la mise à jour du FS échoue
@@ -264,10 +288,10 @@ void UpdateManager::startUpdate(const String &firmwareUrl, const String &firmwar
     }
 
     // 2. Mise à jour du firmware applicatif
-    if (firmwareUrl.length() > 0)
+    if (firmwareUrl && firmwareSha256)
     {
         Serial.println("[Update] Updating firmware...");
-        if (!performUpdate(firmwareUrl, firmwareSha256Url, U_FLASH))
+        if (!performUpdate(firmwareUrl, firmwareSha256, U_FLASH))
         {
             Serial.println("[Update] Firmware update failed!");
             return; // La mise à jour du firmware a échoué

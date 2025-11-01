@@ -281,26 +281,18 @@ void WebServerManager::setupApiRoutes()
     server.on("/reboot", HTTP_POST, [this](AsyncWebServerRequest *request)
               { handleReboot(request); });
 
-    server.on("/api/update/check", HTTP_GET, [this](AsyncWebServerRequest *request) {
+    server.on("/api/update/check", HTTP_GET, [this](AsyncWebServerRequest *request)
+              {
         String updateJson = this->updateManager.checkForUpdates();
-        request->send(200, "application/json", updateJson);
-    });
+        request->send(200, "application/json", updateJson); });
 
-    server.on("/api/update/start", HTTP_POST, [](AsyncWebServerRequest *request) {},
-        NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-            JsonDocument doc;
-            deserializeJson(doc, data, len);
-            String firmwareUrl = doc["firmware_url"];
-            String firmwareMd5Url = doc["firmware_md5_url"];
-            String spiffsUrl = doc["spiffs_url"];
-            String spiffsMd5Url = doc["spiffs_md5_url"];
+    server.on("/api/update/start", HTTP_POST, [this](AsyncWebServerRequest *request)
+              {
+        // Note: This will block the webserver. For a more advanced implementation,
+        // this should be handled in a separate task.
+        this->updateManager.startUpdate();
 
-            // Note: This will block the webserver. For a more advanced implementation,
-            // this should be handled in a separate task.
-            this->updateManager.startUpdate(firmwareUrl, firmwareMd5Url, spiffsUrl, spiffsMd5Url);
-
-            request->send(200, "application/json", "{\"status\":\"Update started...\"}");
-    });
+        request->send(200, "application/json", "{\"status\":\"Update started...\"}"); });
 
     ws.onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
                { onWsEvent(server, client, type, arg, data, len); });
