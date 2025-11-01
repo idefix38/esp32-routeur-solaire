@@ -148,12 +148,12 @@ void ConfigManager::clearConfig()
 
 void ConfigManager::printConfig(const Config &config)
 {
-    Serial.println("--- Configuration ---");
+    Serial.println("\n--- Configuration ---");
     Serial.println("Wifi:");
     Serial.print("  SSID: ");
     Serial.println(config.wifi.ssid.c_str());
     Serial.print("  Password: ");
-    Serial.println(config.wifi.password.c_str()); // Be careful with sensitive info
+    Serial.println("********");
 
     Serial.println("MQTT:");
     Serial.print("  Server: ");
@@ -163,7 +163,7 @@ void ConfigManager::printConfig(const Config &config)
     Serial.print("  Username: ");
     Serial.println(config.mqtt.username.c_str());
     Serial.print("  Password: ");
-    Serial.println(config.mqtt.password.c_str()); // Be careful with sensitive info
+    Serial.println("********");
     Serial.print("  Topic: ");
     Serial.println(config.mqtt.topic.c_str());
 
@@ -217,7 +217,7 @@ void ConfigManager::printConfig(const Config &config)
     Serial.println(config.solar.sunRiseMinutes);
     Serial.print("  Sunset Minutes: ");
     Serial.println(config.solar.sunSetMinutes);
-    Serial.println("---------------------");
+    Serial.println("---------------------\n");
 }
 
 std::string ConfigManager::getTriacMode(int sunRiseMinutes, int sunSetMinutes, const Config &config)
