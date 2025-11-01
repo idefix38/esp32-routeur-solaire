@@ -3,14 +3,15 @@
 
 #include <Arduino.h>
 
-class UpdateManager {
+class UpdateManager
+{
 public:
     UpdateManager();
     String checkForUpdates();
-    void startUpdate(const String& firmwareUrl, const String& firmwareMd5Url, const String& spiffsUrl, const String& spiffsMd5Url);
+    void startUpdate();
 
 private:
-    bool performUpdate(const String& url, const String& md5Url, int command);
+    bool performUpdate(const String &url, const String &sha256, int command);
 };
 
 #endif

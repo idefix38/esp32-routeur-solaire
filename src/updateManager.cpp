@@ -7,33 +7,67 @@
 #include "mbedtls/sha256.h"
 
 // --- Constantes ---
-const char* GITHUB_REPO = "idefix38/esp32-routeur-solaire";
-const char* GITHUB_API_URL = "https://api.github.com/repos/idefix38/esp32-routeur-solaire/releases/latest";
+const char *GITHUB_REPO = "idefix38/esp32-routeur-solaire";
+const char *GITHUB_API_URL = "https://api.github.com/repos/idefix38/esp32-routeur-solaire/releases/latest";
 
-// Certificat racine pour api.github.com (DigiCert High Assurance EV Root CA)
-const char* github_root_ca =
-    "-----BEGIN CERTIFICATE-----\n"
-    "MIIDrzCCApegAwIBAgIQCDvgVpBCRrGhdWrJWZHHSjANBgkqhkiG9w0BAQUFADBh\n"
-    "MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3\n"
-    "d3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBD\n"
-    "QTAeFw0wNjExMTAwMDAwMDBaFw0zMTExMTAwMDAwMDBaMGExCzAJBgNVBAYTAlVT\n"
-    "MRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5j\n"
-    "b20xIDAeBgNVBAMTF0RpZ2lDZXJ0IEdsb2JhbCBSb290IENBMIIBIjANBgkqhkiG\n"
-    "9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4jvhUcqHRMMhtL8LC75PyT9o0yuAODhA2N2N\n"
-    "aEo+5vo6p0RbL/y23vYj43+sSYkC6AZR6CU3K2cE/RJqn03Xj40I+TCp900e0wG\n"
-    "EonRBC0Eh6tP/e2f3XbC8F+2v3sWc+sH/fcw+Y/6cR0sT/c9x/f+tZ4eTIGNh/V\n"
-    "s1/J/k5sOZAeT1bJz3N4fls5oXroA41Ld2t3C3AAb/vAF9E9+N2j/Cj3c4d/G3/l\n"
-    "e3R5v0pbkZucr/18i+q032/3A4333s+4k4A245/s+3d82/5d/u4+21jMn04a2z6\n"
-    "p/8t2aT/8E5o+hR2qaC+vA==\n"
-    "-----END CERTIFICATE-----\n";
+// Combined CA bundle: original GitHub API CA + additional certificate provided for release-assets host
+const char *github_root_ca = R"EOF(
+-----BEGIN CERTIFICATE-----
+MIICjzCCAhWgAwIBAgIQXIuZxVqUxdJxVt7NiYDMJjAKBggqhkjOPQQDAzCBiDEL
+MAkGA1UEBhMCVVMxEzARBgNVBAgTCk5ldyBKZXJzZXkxFDASBgNVBAcTC0plcnNl
+eSBDaXR5MR4wHAYDVQQKExVUaGUgVVNFUlRSVVNUIE5ldHdvcmsxLjAsBgNVBAMT
+JVVTRVJUcnVzdCBFQ0MgQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwHhcNMTAwMjAx
+MDAwMDAwWhcNMzgwMTE4MjM1OTU5WjCBiDELMAkGA1UEBhMCVVMxEzARBgNVBAgT
+Ck5ldyBKZXJzZXkxFDASBgNVBAcTC0plcnNleSBDaXR5MR4wHAYDVQQKExVUaGUg
+VVNFUlRSVVNUIE5ldHdvcmsxLjAsBgNVBAMTJVVTRVJUcnVzdCBFQ0MgQ2VydGlm
+aWNhdGlvbiBBdXRob3JpdHkwdjAQBgcqhkjOPQIBBgUrgQQAIgNiAAQarFRaqflo
+I+d61SRvU8Za2EurxtW20eZzca7dnNYMYf3boIkDuAUU7FfO7l0/4iGzzvfUinng
+o4N+LZfQYcTxmdwlkWOrfzCjtHDix6EznPO/LlxTsV+zfTJ/ijTjeXmjQjBAMB0G
+A1UdDgQWBBQ64QmG1M8ZwpZ2dEl23OA1xmNjmjAOBgNVHQ8BAf8EBAMCAQYwDwYD
+VR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAwNoADBlAjA2Z6EWCNzklwBBHU6+4WMB
+zzuqQhFkoJ2UOQIReVx7Hfpkue4WQrO/isIJxOzksU0CMQDpKmFHjFJKS04YcPbW
+RNZu9YO6bVi9JNlWSOrvxKJGgYhqOkbRqZtNyWHa0V1Xahg=
+-----END CERTIFICATE-----
 
+-----BEGIN CERTIFICATE-----
+MIIFgTCCBGmgAwIBAgIQOXJEOvkit1HX02wQ3TE1lTANBgkqhkiG9w0BAQwFADB7
+MQswCQYDVQQGEwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYD
+VQQHDAdTYWxmb3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEhMB8GA1UE
+AwwYQUFBIENlcnRpZmljYXRlIFNlcnZpY2VzMB4XDTE5MDMxMjAwMDAwMFoXDTI4
+MTIzMTIzNTk1OVowgYgxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpOZXcgSmVyc2V5
+MRQwEgYDVQQHEwtKZXJzZXkgQ2l0eTEeMBwGA1UEChMVVGhlIFVTRVJUUlVTVCBO
+ZXR3b3JrMS4wLAYDVQQDEyVVU0VSVHJ1c3QgUlNBIENlcnRpZmljYXRpb24gQXV0
+aG9yaXR5MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAgBJlFzYOw9sI
+s9CsVw127c0n00ytUINh4qogTQktZAnczomfzD2p7PbPwdzx07HWezcoEStH2jnG
+vDoZtF+mvX2do2NCtnbyqTsrkfjib9DsFiCQCT7i6HTJGLSR1GJk23+jBvGIGGqQ
+Ijy8/hPwhxR79uQfjtTkUcYRZ0YIUcuGFFQ/vDP+fmyc/xadGL1RjjWmp2bIcmfb
+IWax1Jt4A8BQOujM8Ny8nkz+rwWWNR9XWrf/zvk9tyy29lTdyOcSOk2uTIq3XJq0
+tyA9yn8iNK5+O2hmAUTnAU5GU5szYPeUvlM3kHND8zLDU+/bqv50TmnHa4xgk97E
+xwzf4TKuzJM7UXiVZ4vuPVb+DNBpDxsP8yUmazNt925H+nND5X4OpWaxKXwyhGNV
+icQNwZNUMBkTrNN9N6frXTpsNVzbQdcS2qlJC9/YgIoJk2KOtWbPJYjNhLixP6Q5
+D9kCnusSTJV882sFqV4Wg8y4Z+LoE53MW4LTTLPtW//e5XOsIzstAL81VXQJSdhJ
+WBp/kjbmUZIO8yZ9HE0XvMnsQybQv0FfQKlERPSZ51eHnlAfV1SoPv10Yy+xUGUJ
+5lhCLkMaTLTwJUdZ+gQek9QmRkpQgbLevni3/GcV4clXhB4PY9bpYrrWX1Uu6lzG
+KAgEJTm4Diup8kyXHAc/DVL17e8vgg8CAwEAAaOB8jCB7zAfBgNVHSMEGDAWgBSg
+EQojPpbxB+zirynvgqV/0DCktDAdBgNVHQ4EFgQUU3m/WqorSs9UgOHYm8Cd8rID
+ZsswDgYDVR0PAQH/BAQDAgGGMA8GA1UdEwEB/wQFMAMBAf8wEQYDVR0gBAowCDAG
+BgRVHSAAMEMGA1UdHwQ8MDowOKA2oDSGMmh0dHA6Ly9jcmwuY29tb2RvY2EuY29t
+L0FBQUNlcnRpZmljYXRlU2VydmljZXMuY3JsMDQGCCsGAQUFBwEBBCgwJjAkBggr
+BgEFBQcwAYYYaHR0cDovL29jc3AuY29tb2RvY2EuY29tMA0GCSqGSIb3DQEBDAUA
+A4IBAQAYh1HcdCE9nIrgJ7cz0C7M7PDmy14R3iJvm3WOnnL+5Nb+qh+cli3vA0p+
+rvSNb3I8QzvAP+u431yqqcau8vzY7qN7Q/aGNnwU4M309z/+3ri0ivCRlv79Q2R+
+/czSAaF9ffgZGclCKxO/WIu6pKJmBHaIkU4MiRTOok3JMrO66BQavHHxW/BBC5gA
+CiIDEOUMsfnNkjcZ7Tvx5Dq2+UUTJnWvu6rvP3t3O9LEApE9GQDTF1w52z97GA1F
+zZOFli9d31kWTz9RvdVFGD/tSo7oBmF0Ixa1DVBzJ0RHfxBdiSprhTEUxOipakyA
+vGp4z7h/jnZymQyd/teRCBaho1+V
+-----END CERTIFICATE-----
+ )EOF";
+
+// Constructeur par défaut
 UpdateManager::UpdateManager() {}
 
-/**
- * @brief Compare deux chaînes de version sémantique (ex: "V1.2.3").
- * @return 1 si v1 > v2, -1 si v1 < v2, 0 si elles sont égales.
- */
-int compareVersions(String v1, String v2) {
+int compareVersions(String v1, String v2)
+{
     int v1_major = 0, v1_minor = 0, v1_patch = 0;
     int v2_major = 0, v2_minor = 0, v2_patch = 0;
 
@@ -41,12 +75,18 @@ int compareVersions(String v1, String v2) {
     sscanf(v1.c_str(), "V%d.%d.%d", &v1_major, &v1_minor, &v1_patch);
     sscanf(v2.c_str(), "V%d.%d.%d", &v2_major, &v2_minor, &v2_patch);
 
-    if (v1_major > v2_major) return 1;
-    if (v1_major < v2_major) return -1;
-    if (v1_minor > v2_minor) return 1;
-    if (v1_minor < v2_minor) return -1;
-    if (v1_patch > v2_patch) return 1;
-    if (v1_patch < v2_patch) return -1;
+    if (v1_major > v2_major)
+        return 1;
+    if (v1_major < v2_major)
+        return -1;
+    if (v1_minor > v2_minor)
+        return 1;
+    if (v1_minor < v2_minor)
+        return -1;
+    if (v1_patch > v2_patch)
+        return 1;
+    if (v1_patch < v2_patch)
+        return -1;
     return 0;
 }
 
@@ -54,7 +94,8 @@ int compareVersions(String v1, String v2) {
  * @brief Interroge l'API GitHub pour vérifier si une nouvelle version est disponible.
  * @return Une chaîne JSON contenant les informations de la nouvelle version, ou un JSON vide "{}" si aucune mise à jour n'est disponible ou en cas d'erreur.
  */
-String UpdateManager::checkForUpdates() {
+String UpdateManager::checkForUpdates()
+{
     // Crée un client WiFi sécurisé pour la requête HTTPS
     WiFiClientSecure client;
     client.setCACert(github_root_ca);
@@ -66,26 +107,36 @@ String UpdateManager::checkForUpdates() {
     int httpCode = http.GET();
 
     // Vérifie si la requête a réussi
-    if (httpCode != HTTP_CODE_OK) {
+    if (httpCode != HTTP_CODE_OK)
+    {
         http.end();
         Serial.printf("[Update] HTTP GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
         return "{}";
     }
 
-    // Parse la réponse JSON (limité à 2048 octets pour économiser la mémoire)
+    // Filter to extract only necessary fields from the JSON response
+    JsonDocument filter;
+    filter["tag_name"] = true;
+    filter["assets"][0]["name"] = true;
+    filter["assets"][0]["browser_download_url"] = true;
+    filter["assets"][0]["digest"] = true;
+
+    // Parse the JSON response with the filter
     JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, http.getStream());
-    if (error) {
+    DeserializationError error = deserializeJson(doc, http.getStream(), DeserializationOption::Filter(filter));
+    http.end(); // End HTTP connection as soon as possible
+
+    if (error)
+    {
         Serial.printf("[Update] deserializeJson() failed: %s\n", error.c_str());
-        http.end();
         return "{}";
     }
 
     String latest_version = doc["tag_name"];
-    http.end();
 
     // Compare la version de la release avec la version actuelle du firmware
-    if (compareVersions(latest_version, FIRMWARE_VERSION) <= 0) {
+    if (compareVersions(latest_version, FIRMWARE_VERSION) <= 0)
+    {
         Serial.println("[Update] No new version available.");
         return "{}";
     }
@@ -93,78 +144,109 @@ String UpdateManager::checkForUpdates() {
     Serial.printf("[Update] New version available: %s\n", latest_version.c_str());
 
     // Construit la réponse JSON pour le frontend
-    JsonObject response = doc.to<JsonObject>();
+    JsonDocument responseDoc;
+    JsonObject response = responseDoc.to<JsonObject>();
     response["new_version"] = latest_version;
 
-    // Cherche les URLs des assets (fichiers .bin et .md5) dans la release
+    // Cherche les URLs des assets (fichiers .bin) et le sha256 dans la release
     JsonArray assets = doc["assets"];
-    for (JsonObject asset : assets) {
-        String name = asset["name"];
-        String url = asset["browser_download_url"];
+    const String PREFIXE = "sha256:";
 
-        if (name.endsWith(".bin")) {
-            if (name.startsWith("firmware-")) {
+    for (JsonObject asset : assets)
+    {
+        String name = asset["name"].as<String>();
+        String url = asset["browser_download_url"].as<String>();
+        String sha256 = asset["digest"].as<String>().substring(PREFIXE.length());
+
+        if (name.endsWith(".bin"))
+        {
+            if (name.startsWith("firmware-"))
+            {
                 response["firmware_url"] = url;
-            } else if (name.startsWith("web-filesystem-")) {
-                response["spiffs_url"] = url;
+                response["firmware_sha256"] = sha256;
             }
-        } else if (name.endsWith(".sha256")) { // On cherche maintenant le .sha256
-            if (name.startsWith("firmware-")) {
-                response["firmware_sha256_url"] = url;
-            } else if (name.startsWith("web-filesystem-")) {
-                response["spiffs_sha256_url"] = url;
+            else if (name.startsWith("web-filesystem-"))
+            {
+                response["filesystem_url"] = url;
+                response["filesystem_sha256"] = sha256;
             }
         }
     }
-    
+
     String jsonResponse;
-    serializeJson(response, jsonResponse);
+    serializeJson(responseDoc, jsonResponse);
     return jsonResponse;
 }
 
-bool UpdateManager::performUpdate(const String& url, const String& sha256Url, int command) {
+bool UpdateManager::performUpdate(const String &url, const String &sha256, int command)
+{
+    WiFiClientSecure client;
+    client.setCACert(github_root_ca);
     HTTPClient httpClient;
 
-    // --- Téléchargement du checksum SHA256 ---
-    httpClient.begin(sha256Url);
+    Serial.printf("[Update] Expected SHA256: %s\n", sha256.c_str());
+    if (sha256.length() != 64) // SHA256 is 64 hex characters
+    {
+        Serial.printf("[Update] Invalid SHA256 length: %d\n", sha256.length());
+        return false;
+    }
+
+    // --- Download and flash the binary ---
+    // Use WiFiClientSecure to follow redirects
+    httpClient.begin(client, url);
+    Serial.printf("[Update] Requesting URL: %s\n", url.c_str());
+
+    // We need to collect the Location header for redirects
+    const char *headerKeys[] = {"Location"};
+    httpClient.collectHeaders(headerKeys, 1);
+
     int httpCode = httpClient.GET();
-    if (httpCode != HTTP_CODE_OK) {
-        Serial.printf("[Update] Failed to download SHA256 checksum file: %s\n", httpClient.errorToString(httpCode).c_str());
+    Serial.printf("[Update] Initial HTTP code: %d\n", httpCode);
+
+    // Handle potential redirects
+    if (httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == HTTP_CODE_FOUND)
+    {
+        String newUrl = httpClient.header("Location");
+        Serial.printf("[Update] Redirected to: %s\n", newUrl.c_str());
         httpClient.end();
-        return false;
-    }
-    String expectedSha256 = httpClient.getString();
-    httpClient.end();
-    expectedSha256.trim();
 
-    if (expectedSha256.length() != 64) { // SHA256 is 64 hex characters
-        Serial.printf("[Update] Invalid SHA256 length: %d\n", expectedSha256.length());
-        return false;
-    }
-    Serial.printf("[Update] Expected SHA256: %s\n", expectedSha256.c_str());
+        if (newUrl.isEmpty())
+        {
+            Serial.println("[Update] Redirect location is empty!");
+            return false;
+        }
 
-    // --- Téléchargement et flashage du binaire ---
-    httpClient.begin(url);
-    httpCode = httpClient.GET();
-    if (httpCode != HTTP_CODE_OK) {
-        Serial.printf("[Update] Failed to download binary file: %s\n", httpClient.errorToString(httpCode).c_str());
+        httpClient.begin(client, newUrl);
+        Serial.printf("[Update] Requesting redirected URL: %s\n", newUrl.c_str());
+        httpCode = httpClient.GET();
+        Serial.printf("[Update] Redirected HTTP code: %d\n", httpCode);
+    }
+
+    if (httpCode != HTTP_CODE_OK)
+    {
+        Serial.printf("[Update] Failed to download binary file: %s, error: %s\n", url.c_str(), httpClient.errorToString(httpCode).c_str());
         httpClient.end();
         return false;
     }
 
     int contentLength = httpClient.getSize();
-    if (!Update.begin(contentLength, command)) {
+    if (contentLength <= 0)
+    {
+        Serial.println("[Update] Content length is zero or invalid.");
+        httpClient.end();
+        return false;
+    }
+
+    if (!Update.begin(contentLength, command))
+    {
         Update.printError(Serial);
         httpClient.end();
         return false;
     }
 
-    // Remove Update.setMD5 as we will do manual SHA256 verification
-    // Update.setMD5(md5.c_str());
+    // Write the binary in streaming to save RAM
+    WiFiClient *stream = httpClient.getStreamPtr();
 
-    // Écriture du binaire en streaming pour économiser la RAM
-    WiFiClient* stream = httpClient.getStreamPtr();
-    
     // SHA256 calculation setup
     mbedtls_sha256_context sha256_ctx;
     mbedtls_sha256_init(&sha256_ctx);
@@ -172,21 +254,27 @@ bool UpdateManager::performUpdate(const String& url, const String& sha256Url, in
 
     size_t written = 0;
     uint8_t buff[1024]; // Buffer for reading stream
-    while (stream->available() && written < contentLength) {
+    while (httpClient.connected() && written < contentLength)
+    {
         size_t toRead = stream->available();
-        if (toRead > contentLength - written) {
-            toRead = contentLength - written;
+        if (toRead)
+        {
+            if (toRead > sizeof(buff))
+            {
+                toRead = sizeof(buff);
+            }
+            size_t bytesRead = stream->readBytes(buff, toRead);
+            if (bytesRead > 0)
+            {
+                Update.write(buff, bytesRead);
+                mbedtls_sha256_update_ret(&sha256_ctx, buff, bytesRead);
+                written += bytesRead;
+            }
         }
-        if (toRead > sizeof(buff)) {
-            toRead = sizeof(buff);
-        }
-        stream->readBytes(buff, toRead);
-        Update.write(buff, toRead);
-        mbedtls_sha256_update_ret(&sha256_ctx, buff, toRead);
-        written += toRead;
     }
 
-    if (written != contentLength) {
+    if (written != contentLength)
+    {
         Serial.printf("[Update] Written only : %d/%d. Aborting.\n", written, contentLength);
         Update.abort();
         httpClient.end();
@@ -199,25 +287,31 @@ bool UpdateManager::performUpdate(const String& url, const String& sha256Url, in
     mbedtls_sha256_free(&sha256_ctx);
 
     char calculatedSha256Hex[65]; // 64 hex chars + null terminator
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < 32; i++)
+    {
         sprintf(&calculatedSha256Hex[i * 2], "%02x", calculatedSha256[i]);
     }
     calculatedSha256Hex[64] = '\0';
 
     Serial.printf("[Update] Calculated SHA256: %s\n", calculatedSha256Hex);
 
-    if (expectedSha256.equalsIgnoreCase(calculatedSha256Hex)) {
+    if (sha256.equalsIgnoreCase(calculatedSha256Hex))
+    {
         Serial.println("[Update] SHA256 checksum matches.");
-    } else {
+    }
+    else
+    {
         Serial.println("[Update] SHA256 checksum mismatch! Aborting.");
         Update.abort();
         httpClient.end();
         return false;
     }
 
-    // Finalise la mise à jour
-    if (!Update.end()) {
+    // Finalize the update
+    if (!Update.end())
+    {
         Update.printError(Serial);
+        httpClient.end();
         return false;
     }
 
@@ -229,22 +323,47 @@ bool UpdateManager::performUpdate(const String& url, const String& sha256Url, in
 /**
  * @brief Lance le processus de mise à jour OTA.
  */
-void UpdateManager::startUpdate(const String& firmwareUrl, const String& firmwareSha256Url, const String& spiffsUrl, const String& spiffsSha256Url) {
+void UpdateManager::startUpdate()
+{
+    String jsonResponse = checkForUpdates();
+    if (jsonResponse == "{}")
+    {
+        Serial.println("[Update] No new version available or check failed.");
+        return;
+    }
+
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, jsonResponse);
+    if (error)
+    {
+        Serial.printf("[Update] deserializeJson() failed: %s\n", error.c_str());
+        return;
+    }
+
+    const char *firmwareUrl = doc["firmware_url"];
+    const char *firmwareSha256 = doc["firmware_sha256"];
+    const char *filesystemUrl = doc["filesystem_url"];
+    const char *filesystemSha256 = doc["filesystem_sha256"];
+
     Serial.println("[Update] Starting OTA update...");
 
-    // 1. Mise à jour du système de fichiers (SPIFFS)
-    if (spiffsUrl.length() > 0) {
+    // 1. Mise à jour du système de fichiers
+    if (filesystemUrl && filesystemSha256)
+    {
         Serial.println("[Update] Updating filesystem...");
-        if (!performUpdate(spiffsUrl, spiffsSha256Url, U_SPIFFS)) {
+        if (!performUpdate(filesystemUrl, filesystemSha256, U_SPIFFS))
+        {
             Serial.println("[Update] Filesystem update failed!");
             return; // Arrêter si la mise à jour du FS échoue
         }
     }
 
     // 2. Mise à jour du firmware applicatif
-    if (firmwareUrl.length() > 0) {
+    if (firmwareUrl && firmwareSha256)
+    {
         Serial.println("[Update] Updating firmware...");
-        if (!performUpdate(firmwareUrl, firmwareSha256Url, U_FLASH)) {
+        if (!performUpdate(firmwareUrl, firmwareSha256, U_FLASH))
+        {
             Serial.println("[Update] Firmware update failed!");
             return; // La mise à jour du firmware a échoué
         }

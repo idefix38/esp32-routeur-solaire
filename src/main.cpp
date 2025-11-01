@@ -6,6 +6,7 @@
 #include "sensor.h"
 #include "configManager.h"
 #include "shellyEm.h"
+#include "version.h"
 #include "solarManager.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -203,6 +204,8 @@ void setup()
     digitalWrite(pinLedYellow, LOW);
     digitalWrite(pinLedGreen, LOW);
 
+    // Print firmaware version
+    Serial.printf("[-] firmware version %s\n", FIRMWARE_VERSION);
     // Load configuration
     config = configManager.loadConfig();
 
