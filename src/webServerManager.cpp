@@ -288,11 +288,24 @@ void WebServerManager::setupApiRoutes()
 
     server.on("/api/update/start", HTTP_POST, [this](AsyncWebServerRequest *request)
               {
-        // Note: This will block the webserver. For a more advanced implementation,
-        // this should be handled in a separate task.
-        this->updateManager.startUpdate();
+        // Start OTA update in a separate FreeRTOS task to avoid blocking the webserver
+        // Create a small task that calls startUpdate() and then deletes itself.
+        auto otaTask = [](void *param) {
+            WebServerManager *self = reinterpret_cast<WebServerManager *>(param);
+            self->updateManager.startUpdate();
+            vTaskDelete(NULL);
+        };
 
-        request->send(200, "application/json", "{\"status\":\"Update started...\"}"); });
+        // Note: stack size 20000 may be required for OTA; adjust if needed
+        BaseType_t res = xTaskCreatePinnedToCore(otaTask, "OTAUpdate", 20000, this, 1, NULL, 1);
+        if (res == pdPASS)
+        {
+            request->send(200, "application/json", "{\"status\":\"Update started in background\"}");
+        }
+        else
+        {
+            request->send(500, "application/json", "{\"status\":\"Failed to start update task\"}");
+        } });
 
     ws.onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
                { onWsEvent(server, client, type, arg, data, len); });

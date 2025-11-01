@@ -10,6 +10,7 @@
 const char *GITHUB_REPO = "idefix38/esp32-routeur-solaire";
 const char *GITHUB_API_URL = "https://api.github.com/repos/idefix38/esp32-routeur-solaire/releases/latest";
 
+// Combined CA bundle: original GitHub API CA + additional certificate provided for release-assets host
 const char *github_root_ca = R"EOF(
 -----BEGIN CERTIFICATE-----
 MIICjzCCAhWgAwIBAgIQXIuZxVqUxdJxVt7NiYDMJjAKBggqhkjOPQQDAzCBiDEL
@@ -27,14 +28,44 @@ VR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAwNoADBlAjA2Z6EWCNzklwBBHU6+4WMB
 zzuqQhFkoJ2UOQIReVx7Hfpkue4WQrO/isIJxOzksU0CMQDpKmFHjFJKS04YcPbW
 RNZu9YO6bVi9JNlWSOrvxKJGgYhqOkbRqZtNyWHa0V1Xahg=
 -----END CERTIFICATE-----
-)EOF";
 
+-----BEGIN CERTIFICATE-----
+MIIFgTCCBGmgAwIBAgIQOXJEOvkit1HX02wQ3TE1lTANBgkqhkiG9w0BAQwFADB7
+MQswCQYDVQQGEwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVyMRAwDgYD
+VQQHDAdTYWxmb3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEhMB8GA1UE
+AwwYQUFBIENlcnRpZmljYXRlIFNlcnZpY2VzMB4XDTE5MDMxMjAwMDAwMFoXDTI4
+MTIzMTIzNTk1OVowgYgxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpOZXcgSmVyc2V5
+MRQwEgYDVQQHEwtKZXJzZXkgQ2l0eTEeMBwGA1UEChMVVGhlIFVTRVJUUlVTVCBO
+ZXR3b3JrMS4wLAYDVQQDEyVVU0VSVHJ1c3QgUlNBIENlcnRpZmljYXRpb24gQXV0
+aG9yaXR5MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAgBJlFzYOw9sI
+s9CsVw127c0n00ytUINh4qogTQktZAnczomfzD2p7PbPwdzx07HWezcoEStH2jnG
+vDoZtF+mvX2do2NCtnbyqTsrkfjib9DsFiCQCT7i6HTJGLSR1GJk23+jBvGIGGqQ
+Ijy8/hPwhxR79uQfjtTkUcYRZ0YIUcuGFFQ/vDP+fmyc/xadGL1RjjWmp2bIcmfb
+IWax1Jt4A8BQOujM8Ny8nkz+rwWWNR9XWrf/zvk9tyy29lTdyOcSOk2uTIq3XJq0
+tyA9yn8iNK5+O2hmAUTnAU5GU5szYPeUvlM3kHND8zLDU+/bqv50TmnHa4xgk97E
+xwzf4TKuzJM7UXiVZ4vuPVb+DNBpDxsP8yUmazNt925H+nND5X4OpWaxKXwyhGNV
+icQNwZNUMBkTrNN9N6frXTpsNVzbQdcS2qlJC9/YgIoJk2KOtWbPJYjNhLixP6Q5
+D9kCnusSTJV882sFqV4Wg8y4Z+LoE53MW4LTTLPtW//e5XOsIzstAL81VXQJSdhJ
+WBp/kjbmUZIO8yZ9HE0XvMnsQybQv0FfQKlERPSZ51eHnlAfV1SoPv10Yy+xUGUJ
+5lhCLkMaTLTwJUdZ+gQek9QmRkpQgbLevni3/GcV4clXhB4PY9bpYrrWX1Uu6lzG
+KAgEJTm4Diup8kyXHAc/DVL17e8vgg8CAwEAAaOB8jCB7zAfBgNVHSMEGDAWgBSg
+EQojPpbxB+zirynvgqV/0DCktDAdBgNVHQ4EFgQUU3m/WqorSs9UgOHYm8Cd8rID
+ZsswDgYDVR0PAQH/BAQDAgGGMA8GA1UdEwEB/wQFMAMBAf8wEQYDVR0gBAowCDAG
+BgRVHSAAMEMGA1UdHwQ8MDowOKA2oDSGMmh0dHA6Ly9jcmwuY29tb2RvY2EuY29t
+L0FBQUNlcnRpZmljYXRlU2VydmljZXMuY3JsMDQGCCsGAQUFBwEBBCgwJjAkBggr
+BgEFBQcwAYYYaHR0cDovL29jc3AuY29tb2RvY2EuY29tMA0GCSqGSIb3DQEBDAUA
+A4IBAQAYh1HcdCE9nIrgJ7cz0C7M7PDmy14R3iJvm3WOnnL+5Nb+qh+cli3vA0p+
+rvSNb3I8QzvAP+u431yqqcau8vzY7qN7Q/aGNnwU4M309z/+3ri0ivCRlv79Q2R+
+/czSAaF9ffgZGclCKxO/WIu6pKJmBHaIkU4MiRTOok3JMrO66BQavHHxW/BBC5gA
+CiIDEOUMsfnNkjcZ7Tvx5Dq2+UUTJnWvu6rvP3t3O9LEApE9GQDTF1w52z97GA1F
+zZOFli9d31kWTz9RvdVFGD/tSo7oBmF0Ixa1DVBzJ0RHfxBdiSprhTEUxOipakyA
+vGp4z7h/jnZymQyd/teRCBaho1+V
+-----END CERTIFICATE-----
+ )EOF";
+
+// Constructeur par défaut
 UpdateManager::UpdateManager() {}
 
-/**
- * @brief Compare deux chaînes de version sémantique (ex: "V1.2.3").
- * @return 1 si v1 > v2, -1 si v1 < v2, 0 si elles sont égales.
- */
 int compareVersions(String v1, String v2)
 {
     int v1_major = 0, v1_minor = 0, v1_patch = 0;
@@ -123,8 +154,8 @@ String UpdateManager::checkForUpdates()
 
     for (JsonObject asset : assets)
     {
-        String name = asset["name"];
-        String url = asset["browser_download_url"];
+        String name = asset["name"].as<String>();
+        String url = asset["browser_download_url"].as<String>();
         String sha256 = asset["digest"].as<String>().substring(PREFIXE.length());
 
         if (name.endsWith(".bin"))
@@ -149,6 +180,8 @@ String UpdateManager::checkForUpdates()
 
 bool UpdateManager::performUpdate(const String &url, const String &sha256, int command)
 {
+    WiFiClientSecure client;
+    client.setCACert(github_root_ca);
     HTTPClient httpClient;
 
     Serial.printf("[Update] Expected SHA256: %s\n", sha256.c_str());
@@ -158,17 +191,52 @@ bool UpdateManager::performUpdate(const String &url, const String &sha256, int c
         return false;
     }
 
-    // --- Téléchargement et flashage du binaire ---
-    httpClient.begin(url);
+    // --- Download and flash the binary ---
+    // Use WiFiClientSecure to follow redirects
+    httpClient.begin(client, url);
+    Serial.printf("[Update] Requesting URL: %s\n", url.c_str());
+
+    // We need to collect the Location header for redirects
+    const char *headerKeys[] = {"Location"};
+    httpClient.collectHeaders(headerKeys, 1);
+
     int httpCode = httpClient.GET();
+    Serial.printf("[Update] Initial HTTP code: %d\n", httpCode);
+
+    // Handle potential redirects
+    if (httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == HTTP_CODE_FOUND)
+    {
+        String newUrl = httpClient.header("Location");
+        Serial.printf("[Update] Redirected to: %s\n", newUrl.c_str());
+        httpClient.end();
+
+        if (newUrl.isEmpty())
+        {
+            Serial.println("[Update] Redirect location is empty!");
+            return false;
+        }
+
+        httpClient.begin(client, newUrl);
+        Serial.printf("[Update] Requesting redirected URL: %s\n", newUrl.c_str());
+        httpCode = httpClient.GET();
+        Serial.printf("[Update] Redirected HTTP code: %d\n", httpCode);
+    }
+
     if (httpCode != HTTP_CODE_OK)
     {
-        Serial.printf("[Update] Failed to download binary file: %s\n", httpClient.errorToString(httpCode).c_str());
+        Serial.printf("[Update] Failed to download binary file: %s, error: %s\n", url.c_str(), httpClient.errorToString(httpCode).c_str());
         httpClient.end();
         return false;
     }
 
     int contentLength = httpClient.getSize();
+    if (contentLength <= 0)
+    {
+        Serial.println("[Update] Content length is zero or invalid.");
+        httpClient.end();
+        return false;
+    }
+
     if (!Update.begin(contentLength, command))
     {
         Update.printError(Serial);
@@ -176,7 +244,7 @@ bool UpdateManager::performUpdate(const String &url, const String &sha256, int c
         return false;
     }
 
-    // Écriture du binaire en streaming pour économiser la RAM
+    // Write the binary in streaming to save RAM
     WiFiClient *stream = httpClient.getStreamPtr();
 
     // SHA256 calculation setup
@@ -186,21 +254,23 @@ bool UpdateManager::performUpdate(const String &url, const String &sha256, int c
 
     size_t written = 0;
     uint8_t buff[1024]; // Buffer for reading stream
-    while (stream->available() && written < contentLength)
+    while (httpClient.connected() && written < contentLength)
     {
         size_t toRead = stream->available();
-        if (toRead > contentLength - written)
+        if (toRead)
         {
-            toRead = contentLength - written;
+            if (toRead > sizeof(buff))
+            {
+                toRead = sizeof(buff);
+            }
+            size_t bytesRead = stream->readBytes(buff, toRead);
+            if (bytesRead > 0)
+            {
+                Update.write(buff, bytesRead);
+                mbedtls_sha256_update_ret(&sha256_ctx, buff, bytesRead);
+                written += bytesRead;
+            }
         }
-        if (toRead > sizeof(buff))
-        {
-            toRead = sizeof(buff);
-        }
-        stream->readBytes(buff, toRead);
-        Update.write(buff, toRead);
-        mbedtls_sha256_update_ret(&sha256_ctx, buff, toRead);
-        written += toRead;
     }
 
     if (written != contentLength)
@@ -237,10 +307,11 @@ bool UpdateManager::performUpdate(const String &url, const String &sha256, int c
         return false;
     }
 
-    // Finalise la mise à jour
+    // Finalize the update
     if (!Update.end())
     {
         Update.printError(Serial);
+        httpClient.end();
         return false;
     }
 
