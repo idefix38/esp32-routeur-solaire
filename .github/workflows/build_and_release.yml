@@ -64,6 +64,14 @@ jobs:
           # Assurez-vous que le nom du FS .bin est correct (souvent littlefs.bin, ou spiffs.bin)
           cp .pio/build/esp32dev/littlefs.bin $FS_BIN
 
+      - name: 🔢 Calcul des checksums SHA256
+        id: checksums
+        run: |
+          sha256sum ${{ steps.assets.outputs.FW_BIN }} | cut -d ' ' -f 1 > ${{ steps.assets.outputs.FW_BIN }}.sha256
+          sha256sum ${{ steps.assets.outputs.FS_BIN }} | cut -d ' ' -f 1 > ${{ steps.assets.outputs.FS_BIN }}.sha256
+          echo "FW_SHA256=${{ steps.assets.outputs.FW_BIN }}.sha256" >> $GITHUB_OUTPUT
+          echo "FS_SHA256=${{ steps.assets.outputs.FS_BIN }}.sha256" >> $GITHUB_OUTPUT
+
       # --- Étape 5 : Création de la Release et Upload des Assets ---
       - name: 📤 Création de la GitHub Release et Upload des Assets
         if: github.event_name == 'release'
@@ -72,6 +80,8 @@ jobs:
           files: |
             ${{ steps.assets.outputs.FW_BIN }}
             ${{ steps.assets.outputs.FS_BIN }}
+            ${{ steps.checksums.outputs.FW_SHA256 }}
+            ${{ steps.checksums.outputs.FS_SHA256 }}
           draft: false
           prerelease: ${{ github.event.release.prerelease }}
           name: Release ${{ github.ref_name }}

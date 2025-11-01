@@ -8,6 +8,7 @@
 #include "configManager.h"
 #include "mqttManager.h"
 #include "solarManager.h"
+#include "updateManager.h"
 
 using namespace ArduinoJson;
 
@@ -33,6 +34,7 @@ private:
 
     ConfigManager &configManager;
     MqttManager &mqttManager;
+    UpdateManager updateManager;
     AsyncWebServer server;
     AsyncWebSocket ws;
     void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len);
