@@ -201,13 +201,11 @@ bool UpdateManager::performUpdate(const String &url, const String &sha256, int c
     httpClient.collectHeaders(headerKeys, 1);
 
     int httpCode = httpClient.GET();
-    Serial.printf("[Update] Initial HTTP code: %d\n", httpCode);
-
+    
     // Handle potential redirects
     if (httpCode == HTTP_CODE_MOVED_PERMANENTLY || httpCode == HTTP_CODE_FOUND)
     {
-        String newUrl = httpClient.header("Location");
-        Serial.printf("[Update] Redirected to: %s\n", newUrl.c_str());
+        String newUrl = httpClient.header("Location");        
         httpClient.end();
 
         if (newUrl.isEmpty())
@@ -216,10 +214,8 @@ bool UpdateManager::performUpdate(const String &url, const String &sha256, int c
             return false;
         }
 
-        httpClient.begin(client, newUrl);
-        Serial.printf("[Update] Requesting redirected URL: %s\n", newUrl.c_str());
-        httpCode = httpClient.GET();
-        Serial.printf("[Update] Redirected HTTP code: %d\n", httpCode);
+        httpClient.begin(client, newUrl);        
+        httpCode = httpClient.GET();        
     }
 
     if (httpCode != HTTP_CODE_OK)
