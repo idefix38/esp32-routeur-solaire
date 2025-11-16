@@ -1,6 +1,7 @@
 #include "webServerManager.h"
 #include "mqttManager.h"
 #include "solarManager.h"
+#include "version.h"
 
 // Constructeur
 WebServerManager::WebServerManager(ConfigManager &configManager, MqttManager &mqttManager)
@@ -320,12 +321,17 @@ void WebServerManager::startServer()
     Serial.println("[-] Serveur Web Ok");
 }
 
-void WebServerManager::broadcastData(float temperature, float triacOpeningPercentage, bool temperatureReached)
+void WebServerManager::broadcastData(float temperature, float triacOpeningPercentage, bool temperatureReached, String lastFirmwareVersion)
 {
     JsonDocument doc;
     doc["temperature"] = temperature;
     doc["triacOpeningPercentage"] = triacOpeningPercentage;
     doc["temperatureReached"] = temperatureReached;
+    doc["currentFirmwareVersion"] = FIRMWARE_VERSION;
+    if (lastFirmwareVersion != "")
+    {
+        doc["lastFirmwareVersion"] = lastFirmwareVersion;
+    }
 
     String currentJson;
     serializeJson(doc, currentJson);

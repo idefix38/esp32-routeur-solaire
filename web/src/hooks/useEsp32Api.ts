@@ -5,7 +5,7 @@
 import { useState, useCallback } from 'preact/hooks';
 
 // Types des routes API disponibles
-export type ApiRoute = '/saveWifiSettings' | '/saveMqttSettings' | '/getData' | '/saveSolarSettings' | '/saveBoilerSettings' | '/getConfig' | '/reboot';
+export type ApiRoute = '/saveWifiSettings' | '/saveMqttSettings' | '/getData' | '/saveSolarSettings' | '/saveBoilerSettings' | '/getConfig' | '/reboot' | '/api/update/check' | '/api/update/start';
 
 // Structure de retour du callApi
 interface ApiResult {

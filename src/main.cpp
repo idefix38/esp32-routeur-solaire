@@ -131,6 +131,8 @@ void communicationTask(void *pvParameters)
     static unsigned long lastTempTime = 0;
     static unsigned long lastMqttTime = 0;
     static unsigned long lastBroadCastweb = 0;
+    static unsigned long lastcheckUpdate = 0;
+    String newFirmwareVersion = "";
 
     for (;;)
     {
@@ -138,6 +140,7 @@ void communicationTask(void *pvParameters)
 
         xSemaphoreTake(configMutex, portMAX_DELAY);
         std::string mqttServer = config.mqtt.server;
+
         xSemaphoreGive(configMutex);
 
         if (reboot)
@@ -145,6 +148,21 @@ void communicationTask(void *pvParameters)
             reboot = false;
             delay(3000);
             ESP.restart();
+        }
+
+        // Vérification des mises à jour toutes les 7 jours
+        if (now - lastcheckUpdate > 7 * 24 * 60 * 60 * 1000)
+        {
+            lastcheckUpdate = now;
+            UpdateManager updateManager;
+            String updateJson = updateManager.checkForUpdates();
+            if (updateJson != "{}")
+            {
+                JsonDocument doc;
+                DeserializationError error = deserializeJson(doc, updateJson);
+                newFirmwareVersion = doc["new_version"].as<String>();
+                web.broadcastData(lastTemperature, triacOpeningPercentage, temperatureReached, newFirmwareVersion);
+            }
         }
 
         // Lecture de la température toutes les 30 secondes
@@ -156,7 +174,7 @@ void communicationTask(void *pvParameters)
         // Brocast des donnée vers l'app web
         if (now - lastBroadCastweb > 1000)
         {
-            web.broadcastData(lastTemperature, triacOpeningPercentage, temperatureReached);
+            web.broadcastData(lastTemperature, triacOpeningPercentage, temperatureReached, newFirmwareVersion);
             lastBroadCastweb = now;
         }
 

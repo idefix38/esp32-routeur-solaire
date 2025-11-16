@@ -9,6 +9,7 @@ const WifiPage = lazy(() => import('./pages/wifi'));
 const MqttPage  = lazy(() => import('./pages/mqtt'));
 const SolarPage  = lazy(() => import('./pages/solar'));
 const BoilerPage = lazy(()=>import('./pages/boiler'))
+const InformationsPage = lazy(()=>import('./pages/informations'))
 
 
 export interface pagePros {
@@ -29,6 +30,7 @@ export function App(props: any) {
           <MqttPage path="/mqtt" />
           <SolarPage path="/solar" />
           <BoilerPage path="/boiler"/>
+          <InformationsPage path="/informations"/>
           <NotFound default />
         </Router>
       </ToastProvider>

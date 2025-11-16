@@ -19,7 +19,7 @@ public:
     void setupLocalWeb();
     void setupApiRoutes();
     void startServer();
-    void broadcastData(float temperature, float triacOpeningPercentage, bool temperatureReached);
+    void broadcastData(float temperature, float triacOpeningPercentage, bool temperatureReached, String newVersion = "");
 
 private:
     void addFileRoutes(File dir);

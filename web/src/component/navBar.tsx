@@ -1,9 +1,10 @@
 import { Disclosure, DisclosureButton, DisclosurePanel, Popover } from '@headlessui/react'
-import { Menu, X } from 'lucide-react'
+import { Menu, Power, X } from 'lucide-react'
 import { useLocation } from 'preact-iso';
 import { routes } from '../routes';
 import styles from './navBar.module.scss';
 import { CirclePower } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { useEsp32Api } from '../hooks/useEsp32Api';
 import { useToast } from '../context/ToastContext';
 
@@ -72,7 +73,7 @@ export const Navbar = () => {
                   <Popover.Panel className="absolute right-0 top-full mt-2 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
                     <div className="py-1">
                       <button
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 flex items-center space-x-2"
                         onClick={async () => {
                           const result = await callApi("/reboot", { method: "POST" });
                           if (result.success) {
@@ -84,13 +85,26 @@ export const Navbar = () => {
                         }}
                         disabled={loading}
                       >
-                        Redémarrer l'ESP32
+                        <Power className="size-4 mr-2" aria-hidden="true" />Redémarrer l'ESP32
                       </button>
+                      <a
+                        href="/informations"
+                        className="w-full block text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 flex items-center space-x-2"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          // Use history API to navigate client-side and notify the router
+                          window.history.pushState({}, '', '/informations');
+                          window.dispatchEvent(new PopStateEvent('popstate'));
+                          close();
+                        }}
+                      >
+                        <Info className="size-4 mr-2" aria-hidden="true" />Informations
+                      </a>
                     </div>
                   </Popover.Panel>
                 </>
               )}
-            </Popover>
+            </Popover>            
           </div>
         </div>
       </div>
