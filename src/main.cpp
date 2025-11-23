@@ -176,7 +176,11 @@ void communicationTask(void *pvParameters)
         // Lecture de la température toutes les 30 secondes
         if (now - lastTempTime > 30 * 1000)
         {
-            lastTemperature = getTemperature();
+            float tmpTemperature = getTemperature();
+            if (tmpTemperature != -127) // -127 = erreur de lecture
+            {
+                lastTemperature = getTemperature();
+            }
             lastTempTime = now;
         }
         // Brocast des données vers l'app web toutes les secondes

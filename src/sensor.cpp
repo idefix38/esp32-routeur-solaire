@@ -30,6 +30,6 @@ float getTemperature()
   else
   {
     Serial.println("Error: Could not read temperature data");
-    return -1; // Retourne -1 en cas d'erreur de lecture
+    return -127; // Retourne -127 en cas d'erreur de lecture
   }
 }
