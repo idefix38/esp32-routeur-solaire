@@ -9,13 +9,14 @@
 #include "mqttManager.h"
 #include "solarManager.h"
 #include "updateManager.h"
+#include "historyManager.h"
 
 using namespace ArduinoJson;
 
 class WebServerManager
 {
 public:
-    WebServerManager(ConfigManager &configManager, MqttManager &mqttManager);
+    WebServerManager(ConfigManager &configManager, MqttManager &mqttManager, HistoryManager &tempHistory, HistoryManager &triacHist);
     void setupLocalWeb();
     void setupApiRoutes();
     void startServer();
@@ -25,6 +26,8 @@ private:
     void addFileRoutes(File dir);
     void handleGetConfig(AsyncWebServerRequest *request);
     void handleReboot(AsyncWebServerRequest *request);
+    void handleGetTemperatureHistory(AsyncWebServerRequest *request);
+    void handleGetTriacHistory(AsyncWebServerRequest *request);
     void addCorsHeaders(AsyncWebServerResponse *response);
     void handleSaveWifiSettings(AsyncWebServerRequest *request, uint8_t *data, size_t len);
     void handleSaveMqttSettings(AsyncWebServerRequest *request, uint8_t *data, size_t len);
@@ -34,6 +37,8 @@ private:
 
     ConfigManager &configManager;
     MqttManager &mqttManager;
+    HistoryManager &temperatureHistory;
+    HistoryManager &triacHistory;
     UpdateManager updateManager;
     AsyncWebServer server;
     AsyncWebSocket ws;

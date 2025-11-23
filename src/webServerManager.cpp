@@ -4,8 +4,8 @@
 #include "version.h"
 
 // Constructeur
-WebServerManager::WebServerManager(ConfigManager &configManager, MqttManager &mqttManager)
-    : configManager(configManager), mqttManager(mqttManager), server(80), ws("/ws")
+WebServerManager::WebServerManager(ConfigManager &configManager, MqttManager &mqttManager, HistoryManager &tempHistory, HistoryManager &triacHist)
+    : configManager(configManager), mqttManager(mqttManager), temperatureHistory(tempHistory), triacHistory(triacHist), server(80), ws("/ws")
 {
     lastBroadcastedJson = "";
     newClientConnected = false;
@@ -74,6 +74,30 @@ void WebServerManager::handleGetConfig(AsyncWebServerRequest *request)
     solarObj["sunRiseMinutes"] = config.solar.sunRiseMinutes;
     solarObj["sunSetMinutes"] = config.solar.sunSetMinutes;
 
+    String jsonString;
+    serializeJson(doc, jsonString);
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", jsonString);
+    request->send(response);
+}
+
+void WebServerManager::handleGetTemperatureHistory(AsyncWebServerRequest *request)
+{
+    Serial.println(" GET: /api/history/temperature");
+    // Alloue un document JSON suffisamment grand. 1440 points * ~35 octets/point + tampon = ~55KB
+    JsonDocument doc;
+    temperatureHistory.serialize(doc);
+    String jsonString;
+    serializeJson(doc, jsonString);
+    AsyncWebServerResponse *response = request->beginResponse(200, "application/json", jsonString);
+    request->send(response);
+}
+
+void WebServerManager::handleGetTriacHistory(AsyncWebServerRequest *request)
+{
+    Serial.println(" GET: /api/history/triac");
+    // Alloue un document JSON suffisamment grand. 1440 points * ~35 octets/point + tampon = ~55KB
+    JsonDocument doc;
+    triacHistory.serialize(doc);
     String jsonString;
     serializeJson(doc, jsonString);
     AsyncWebServerResponse *response = request->beginResponse(200, "application/json", jsonString);
@@ -235,8 +259,56 @@ void WebServerManager::addFileRoutes(File dir)
         {
             String filePath = String(file.path());
             String contentType = getContentType(filePath);
-            server.on(filePath.c_str(), HTTP_GET, [this, filePath, contentType](AsyncWebServerRequest *request)
-                      { request->send(LittleFS, filePath, contentType); });
+
+            // If the stored file is a gzip (.gz) we want to register the route
+            // without the .gz suffix (so browsers requesting /assets/foo.js
+            // will be served the pre-compressed /assets/foo.js.gz with the
+            // correct Content-Encoding header).
+            if (filePath.endsWith(".gz"))
+            {
+                String uncompressedPath = filePath.substring(0, filePath.length() - 3);
+
+                // Serve request to the uncompressed path by returning the .gz file
+                server.on(uncompressedPath.c_str(), HTTP_GET, [this, filePath, contentType](AsyncWebServerRequest *request)
+                          {
+                              AsyncWebServerResponse *res = request->beginResponse(LittleFS, filePath.c_str(), contentType);
+                              res->addHeader("Content-Encoding", "gzip");
+                              res->addHeader("Vary", "Accept-Encoding");
+                              request->send(res); });
+
+                // Also register the explicit .gz path (in case a client asks for it)
+                server.on(filePath.c_str(), HTTP_GET, [this, filePath, contentType](AsyncWebServerRequest *request)
+                          {
+                              AsyncWebServerResponse *res = request->beginResponse(LittleFS, filePath.c_str(), contentType);
+                              res->addHeader("Content-Encoding", "gzip");
+                              res->addHeader("Vary", "Accept-Encoding");
+                              request->send(res); });
+            }
+            else
+            {
+                // Normal (non-.gz) file registered in LittleFS: keep backward-compatible handling
+                server.on(filePath.c_str(), HTTP_GET, [this, filePath, contentType](AsyncWebServerRequest *request)
+                          {
+                              // If the client accepts gzip and a .gz version exists, serve it with Content-Encoding: gzip
+                              bool acceptGzip = false;
+                              if (request->hasHeader("Accept-Encoding")) {
+                                  AsyncWebHeader* h = request->getHeader("Accept-Encoding");
+                                  if (h) {
+                                      String ae = h->value();
+                                      if (ae.indexOf("gzip") != -1) acceptGzip = true;
+                                  }
+                              }
+
+                              String gzPath = filePath + ".gz";
+                              if (acceptGzip && LittleFS.exists(gzPath)) {
+                                  AsyncWebServerResponse *res = request->beginResponse(LittleFS, gzPath.c_str(), contentType);
+                                  res->addHeader("Content-Encoding", "gzip");
+                                  res->addHeader("Vary", "Accept-Encoding");
+                                  request->send(res);
+                              } else {
+                                  request->send(LittleFS, filePath, contentType);
+                              } });
+            }
             Serial.print("  -> Route créée pour : ");
             Serial.print(filePath);
             Serial.print(" | Type : ");
@@ -252,13 +324,50 @@ void WebServerManager::setupLocalWeb()
     addFileRoutes(root);
 
     // HTML routes
-    // Route principale qui sert le fichier index.html
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->send(LittleFS, "/index.html", "text/html"); });
+    // Route principale qui sert le fichier index.html (serve .gz if available and accepted)
+    server.on("/", HTTP_GET, [this](AsyncWebServerRequest *request)
+              {
+                  String filePath = "/index.html";
+                  // Check Accept-Encoding header
+                  bool acceptGzip = false;
+                  if (request->hasHeader("Accept-Encoding")) {
+                      AsyncWebHeader* h = request->getHeader("Accept-Encoding");
+                      if (h) {
+                          String ae = h->value();
+                          if (ae.indexOf("gzip") != -1) acceptGzip = true;
+                      }
+                  }
+                  String gzPath = filePath + ".gz";
+                  if (acceptGzip && LittleFS.exists(gzPath)) {
+                      AsyncWebServerResponse *res = request->beginResponse(LittleFS, gzPath.c_str(), "text/html");
+                      res->addHeader("Content-Encoding", "gzip");
+                      res->addHeader("Vary", "Accept-Encoding");
+                      request->send(res);
+                  } else {
+                      request->send(LittleFS, filePath, "text/html");
+                  } });
 
     // L'Erreur 404 est géré par l'application Réact, on renvoi toujour index.html
-    server.onNotFound([](AsyncWebServerRequest *request)
-                      { request->send(LittleFS, "/index.html", "text/html"); });
+    server.onNotFound([this](AsyncWebServerRequest *request)
+                      {
+                          String filePath = "/index.html";
+                          bool acceptGzip = false;
+                          if (request->hasHeader("Accept-Encoding")) {
+                              AsyncWebHeader* h = request->getHeader("Accept-Encoding");
+                              if (h) {
+                                  String ae = h->value();
+                                  if (ae.indexOf("gzip") != -1) acceptGzip = true;
+                              }
+                          }
+                          String gzPath = filePath + ".gz";
+                          if (acceptGzip && LittleFS.exists(gzPath)) {
+                              AsyncWebServerResponse *res = request->beginResponse(LittleFS, gzPath.c_str(), "text/html");
+                              res->addHeader("Content-Encoding", "gzip");
+                              res->addHeader("Vary", "Accept-Encoding");
+                              request->send(res);
+                          } else {
+                              request->send(LittleFS, filePath, "text/html");
+                          } });
 
     Serial.println("[-] Serveur Web Ok");
 }
@@ -266,6 +375,12 @@ void WebServerManager::setupLocalWeb()
 void WebServerManager::setupApiRoutes()
 {
     // API routes
+    server.on("/api/history/temperature", HTTP_GET, [this](AsyncWebServerRequest *request)
+              { handleGetTemperatureHistory(request); });
+
+    server.on("/api/history/triac", HTTP_GET, [this](AsyncWebServerRequest *request)
+              { handleGetTriacHistory(request); });
+
     server.on("/saveWifiSettings", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL, [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
               { handleSaveWifiSettings(request, data, len); });
 
@@ -328,9 +443,33 @@ void WebServerManager::broadcastData(float temperature, float triacOpeningPercen
     doc["triacOpeningPercentage"] = triacOpeningPercentage;
     doc["temperatureReached"] = temperatureReached;
     doc["currentFirmwareVersion"] = FIRMWARE_VERSION;
+
     if (lastFirmwareVersion != "")
     {
         doc["lastFirmwareVersion"] = lastFirmwareVersion;
+    }
+
+    // Ajouter les historiques (sérialiser en tableaux JSON)
+    {
+        JsonArray tempArray = doc["temperatureHistory"].to<JsonArray>();
+        std::vector<DataPoint> tdata = temperatureHistory.getData();
+        for (const auto &p : tdata)
+        {
+            JsonObject obj = tempArray.add<JsonObject>();
+            obj["time"] = p.timestamp;
+            obj["value"] = p.value;
+        }
+    }
+
+    {
+        JsonArray triacArray = doc["triacHistory"].to<JsonArray>();
+        std::vector<DataPoint> thdata = triacHistory.getData();
+        for (const auto &p : thdata)
+        {
+            JsonObject obj = triacArray.add<JsonObject>();
+            obj["time"] = p.timestamp;
+            obj["value"] = p.value;
+        }
     }
 
     String currentJson;
@@ -348,6 +487,13 @@ void WebServerManager::broadcastData(float temperature, float triacOpeningPercen
 // Fonction pour déterminer le Content - Type(MIME type) d'un fichier en fonction de son extension
 String WebServerManager::getContentType(String filename)
 {
+    // If the file is a pre-compressed gzip file (e.g. "index.html.gz"),
+    // strip the ".gz" suffix before determining the MIME type so we
+    // return the original content type (text/html, application/javascript, ...).
+    if (filename.endsWith(".gz"))
+    {
+        filename = filename.substring(0, filename.length() - 3);
+    }
     if (filename.endsWith(".html") || filename.endsWith(".htm"))
         return "text/html";
     else if (filename.endsWith(".css"))

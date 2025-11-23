@@ -9,6 +9,8 @@ interface WebSocketData {
     temperatureReached?: boolean;
     currentFirmwareVersion?: string;
     newFirmwareVersion?: string;
+    temperatureHistory?: { time: number, value: number }[];
+    triacHistory?: { time: number, value: number }[];
 }
 
 // Énumération pour le statut de la connexion

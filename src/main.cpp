@@ -8,6 +8,7 @@
 #include "shellyEm.h"
 #include "version.h"
 #include "solarManager.h"
+#include "historyManager.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <time.h>
@@ -20,6 +21,12 @@
 #define pinZeroCross 23
 #define pinTemperature 4
 
+// --- Gestion de l'historique ---
+const size_t HISTORY_SIZE = 24 * 60; // 24 heures de données, à raison d'un point par minute
+HistoryManager temperatureHistory(HISTORY_SIZE);
+HistoryManager triacHistory(HISTORY_SIZE);
+// --------------------------------
+
 // Task Handles
 TaskHandle_t CommunicationTaskHandle;
 TaskHandle_t SignalProcessingTaskHandle;
@@ -30,7 +37,7 @@ Config config;
 WifiManager wifiManager;
 SolarManager *solarManager = nullptr;
 MqttManager mqttManager(configManager);
-WebServerManager web(configManager, mqttManager);
+WebServerManager web(configManager, mqttManager, temperatureHistory, triacHistory);
 ShellyEm *shelly = nullptr;
 
 // Shared Data
@@ -132,6 +139,7 @@ void communicationTask(void *pvParameters)
     static unsigned long lastMqttTime = 0;
     static unsigned long lastBroadCastweb = 0;
     static unsigned long lastcheckUpdate = 0;
+    static unsigned long lastHistorySaveTime = 0;
     String newFirmwareVersion = "";
 
     for (;;)
@@ -171,11 +179,19 @@ void communicationTask(void *pvParameters)
             lastTemperature = getTemperature();
             lastTempTime = now;
         }
-        // Brocast des donnée vers l'app web
+        // Brocast des données vers l'app web toutes les secondes
         if (now - lastBroadCastweb > 1000)
         {
             web.broadcastData(lastTemperature, triacOpeningPercentage, temperatureReached, newFirmwareVersion);
             lastBroadCastweb = now;
+        }
+
+        // Enregistrement de l'historique toutes les minutes
+        if (now - lastHistorySaveTime > 60 * 1000)
+        {
+            temperatureHistory.add(lastTemperature);
+            triacHistory.add(triacOpeningPercentage);
+            lastHistorySaveTime = now;
         }
 
         if (!mqttServer.empty())
@@ -192,16 +208,13 @@ void communicationTask(void *pvParameters)
                 mqttManager.sendDiscovery();
                 lastDiscoveryTime = now;
             }
-            // Envoi des données à home assistant toutes les 10 secondes
-            if (now - lastMqttTime > 10 * 1000)
+            // Envoi des données à home assistant toutes les 30 secondes
+            if (now - lastMqttTime > 30 * 1000)
             {
                 mqttManager.sendData(lastTemperature, triacOpeningPercentage);
                 lastMqttTime = now;
             }
         }
-
-        // The web server logic (especially if async) handles its own connections.
-        // No explicit web.loop() is needed if using ESPAsyncWebServer.
 
         // Delay to yield to other tasks, if any, on the same core
         vTaskDelay(pdMS_TO_TICKS(10));

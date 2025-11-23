@@ -6,9 +6,10 @@ interface CardProps {
   label: string;
   Icon: React.ComponentType<LucideProps>;
   showCheck?: boolean;
+  children?: React.ReactNode;
 }
 
-export const Card = ({ value, label, Icon, showCheck = false }: CardProps) => {
+export const Card = ({ value, label, Icon, showCheck = false, children }: CardProps) => {
   return (
     <div className="overflow-hidden rounded-lg bg-gray-100 shadow">
       <div className="p-5">
@@ -34,6 +35,7 @@ export const Card = ({ value, label, Icon, showCheck = false }: CardProps) => {
             </div>
           )}
         </div>
+        {children}
       </div>
     </div>
   );
