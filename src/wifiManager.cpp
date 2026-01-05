@@ -24,7 +24,7 @@ void WifiManager::setupAccessPoint(const char *ssid_ap)
 }
 
 // Connecte l'ESP32 à un réseau WiFi en utilisant le SSID et le mot de passe fournis
-String WifiManager::connect(const char *_ssid, const char *_password, int timeout)
+String WifiManager::connect(const char *_ssid, const char *_password, int ledPin, int timeout)
 {
     ssid = _ssid;
     password = _password;
@@ -33,13 +33,13 @@ String WifiManager::connect(const char *_ssid, const char *_password, int timeou
     int i = 0;
     WiFi.begin(ssid, password);
 
-    while (WiFi.status() != WL_CONNECTED && i < timeout)
+    while (WiFi.status() != WL_CONNECTED && i < timeout * 2)
     {
-        digitalWrite(LED_BUILTIN, HIGH);
-        delay(500);
+        digitalWrite(ledPin, HIGH);
+        delay(250);
         Serial.print(".");
-        digitalWrite(LED_BUILTIN, LOW);
-        delay(500);
+        digitalWrite(ledPin, LOW);
+        delay(250);
         i++;
     }
     Serial.println(".");
@@ -48,13 +48,15 @@ String WifiManager::connect(const char *_ssid, const char *_password, int timeou
     {
         // Désactive le mode AP
         WiFi.mode(WIFI_MODE_STA);
+        digitalWrite(ledPin, HIGH);
+        // Éteint la LED interne après connexion WiFi réussie
         digitalWrite(LED_BUILTIN, LOW);
         Serial.println("[-] Connexion au WiFi OK!");
         Serial.print("    - Adresse IP : http://");
         Serial.println(WiFi.localIP());
         return WiFi.localIP().toString();
     }
-
+    digitalWrite(ledPin, LOW);
     return ""; // Retourne une chaîne vide si la connexion échoue
 }
 
@@ -102,7 +104,7 @@ String WifiManager::findDeviceIpByNamePrefix(const String &prefix, const char *s
             // Vérifier si le nom d'hôte commence par le préfixe désiré
             if (hostname.startsWith(prefix))
             {
-                Serial.printf("  -> Appareil '%s' trouvé à l'IP: %s\n", hostname.c_str(), ip.toString().c_str());
+                Serial.printf("  -> Appareil '%s' trouvé à l\'IP: %s\n", hostname.c_str(), ip.toString().c_str());
                 MDNS.end(); // Arrêter mDNS après avoir trouvé l'appareil (optionnel, mais bonne pratique)
                 return ip.toString();
             }

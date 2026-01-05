@@ -13,7 +13,7 @@ public:
     void setupAccessPoint(const char *ssid_ap);
 
     // Méthode de connexion
-    String connect(const char *ssid, const char *password, int timeout = 10);
+    String connect(const char *ssid, const char *password, int ledPin, int timeout = 10);
     String findDeviceIpByNamePrefix(const String &prefix, const char *service, const char *proto);
 
 private:

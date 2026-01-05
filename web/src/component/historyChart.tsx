@@ -118,7 +118,7 @@ const HistoryChart: React.FC<HistoryChartProps> = ({
           const x = padding.left + Math.round(xScale(xt));
           return (
             <g key={idx}>
-              <line x1={x} x2={x} y1={padding.top} y2={vh - padding.bottom} stroke="#ddd" strokeWidth={1} />
+              <line x1={x} x2={x} y1={padding.top} y2={vh - padding.bottom} stroke="#ddd" strokeWidth={1} strokeDasharray="4 4" />
               <text x={x} y={vh - 4} textAnchor="middle" fontSize={14} fontWeight={700} className={labelClass ? `${labelClass} fill-current` : undefined} fill={labelClass ? undefined : '#333'}>{formatTime(xt)}</text>
             </g>
           );

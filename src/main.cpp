@@ -15,11 +15,11 @@
 #include "timezone.h"
 
 // Pin Definitions
-#define pinLedYellow 18
+#define pinLedRed 18
 #define pinLedGreen 19
 #define pinPulseTriac 22
 #define pinZeroCross 23
-#define pinTemperature 4
+#define pinFan 13 // Ventilateur de refroidissement du triac
 
 // --- Gestion de l'historique ---
 const size_t HISTORY_SIZE = 24 * 60; // 24 heures de données, à raison d'un point par minute
@@ -30,6 +30,7 @@ HistoryManager triacHistory(HISTORY_SIZE);
 // Task Handles
 TaskHandle_t CommunicationTaskHandle;
 TaskHandle_t SignalProcessingTaskHandle;
+TaskHandle_t LedTaskHandle;
 
 // Global Objects
 ConfigManager configManager;
@@ -50,8 +51,99 @@ int sunsetMinutes = 0;                     // Heure du coucherdu soleil en minut
 volatile bool temperatureReached = false;  // True si la température a été atteinte dans la journée (Remise à zéro au lever du soleil)
 volatile bool reboot = false;              // true si on demande à l'ESP32 un reboot
 
+// LED Management
+enum WifiState
+{
+    WIFI_DISCONNECTED,
+    WIFI_AP_MODE,
+    WIFI_CONNECTED
+};
+volatile WifiState wifiState = WIFI_DISCONNECTED;
+
+// Mode de fonctionnement pour la LED verte
+enum TriacMode
+{
+    TRIAC_OFF,
+    TRIAC_AUTO,
+    TRIAC_FORCED_ON
+};
+volatile TriacMode triacMode = TRIAC_OFF;
+
 // Mutex for thread-safe operations
 SemaphoreHandle_t configMutex;
+
+// Task for LED Management
+void ledTask(void *pvParameters)
+{
+    Serial.println("LED Task started");
+    unsigned long lastRedBlinkTime = 0;
+    unsigned long lastGreenBlinkTime = 0;
+    bool redLedState = false;
+    bool greenLedState = false;
+
+    for (;;)
+    {
+        unsigned long now = millis();
+
+        // Gestion de la LED rouge selon l'état WiFi
+        switch (wifiState)
+        {
+        case WIFI_DISCONNECTED:
+            // LED rouge allumée en permanence
+            digitalWrite(pinLedRed, HIGH);
+            break;
+
+        case WIFI_AP_MODE:
+            // LED rouge clignotante (500ms ON, 500ms OFF)
+            if (now - lastRedBlinkTime >= 500)
+            {
+                redLedState = !redLedState;
+                digitalWrite(pinLedRed, redLedState ? HIGH : LOW);
+                lastRedBlinkTime = now;
+            }
+            break;
+
+        case WIFI_CONNECTED:
+            // LED rouge éteinte
+            digitalWrite(pinLedRed, LOW);
+            break;
+        }
+
+        // Gestion de la LED verte selon le mode du triac
+        if (triacMode == TRIAC_FORCED_ON)
+        {
+            // Marche forcée : LED verte allumée en permanence
+            digitalWrite(pinLedGreen, HIGH);
+        }
+        else if (triacMode == TRIAC_AUTO && triacOpeningPercentage > 0)
+        {
+            // Mode auto avec régulation en cours : LED verte clignotante (200ms ON, 200ms OFF)
+            if (now - lastGreenBlinkTime >= 200)
+            {
+                greenLedState = !greenLedState;
+                digitalWrite(pinLedGreen, greenLedState ? HIGH : LOW);
+                lastGreenBlinkTime = now;
+            }
+        }
+        else
+        {
+            // Triac arrêté ou mode auto sans régulation : LED verte éteinte
+            digitalWrite(pinLedGreen, LOW);
+        }
+
+        // Gestion du ventilateur de refroidissement du triac
+        if (triacOpeningPercentage > 0)
+        {
+            digitalWrite(pinFan, HIGH); // Ventilateur ON si le triac fonctionne
+        }
+        else
+        {
+            digitalWrite(pinFan, LOW); // Ventilateur OFF si le triac est arrêté
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(50)); // Vérification toutes les 50ms
+    }
+}
 
 // Task for Signal Processing (Core 0)
 void signalProcessingTask(void *pvParameters)
@@ -96,9 +188,12 @@ void signalProcessingTask(void *pvParameters)
                 solarManager->Off();
                 triacOpeningPercentage = 0;
                 temperatureReached = true;
+                triacMode = TRIAC_OFF;
             }
             else if ((mode == "Auto" || mode == "auto") && periodMode == "AUTO")
             {
+                // Mode automatique
+                triacMode = TRIAC_AUTO;
                 // Toutes les 1 seconde, lecture de la puissance consommée
                 if (shelly != nullptr && (now - lastShellyTime) > 1000)
                 {
@@ -114,13 +209,15 @@ void signalProcessingTask(void *pvParameters)
             }
             else if ((mode == "On" || mode == "on") || periodMode == "ON")
             {
-                // Mode "Marche Forcé"
+                // Mode "Marche Forcée"
+                triacMode = TRIAC_FORCED_ON;
                 solarManager->On();
                 triacOpeningPercentage = 100;
             }
             else if ((mode == "Off" || mode == "off") || periodMode == "OFF")
             {
-                // Mode "Arret Forcé"
+                // Mode "Arrêt Forcé"
+                triacMode = TRIAC_OFF;
                 solarManager->Off();
                 triacOpeningPercentage = 0;
             }
@@ -228,19 +325,32 @@ void communicationTask(void *pvParameters)
 void setup()
 {
     Serial.begin(115200);
+    // Setup WiFi
+    wifiState = WIFI_AP_MODE; // Mode AP activé au démarrage
     reboot = false;
 
     // Create Mutex
     configMutex = xSemaphoreCreateMutex();
 
     // Pin initialization
-    pinMode(pinLedYellow, OUTPUT);
+    pinMode(pinLedRed, OUTPUT);
     pinMode(pinLedGreen, OUTPUT);
-    digitalWrite(pinLedYellow, LOW);
-    digitalWrite(pinLedGreen, LOW);
+    pinMode(pinFan, OUTPUT);
+    digitalWrite(pinFan, LOW); // Ventilateur éteint par défaut
 
     // Print firmaware version
     Serial.printf("[-] firmware version %s\n", FIRMWARE_VERSION);
+
+    // Create LED task early so it can manage LED during WiFi setup
+    xTaskCreatePinnedToCore(
+        ledTask,        // Task function
+        "LedTask",      // Name of the task
+        2048,           // Stack size of task
+        NULL,           // Parameter of the task
+        1,              // Priority of the task (lowest)
+        &LedTaskHandle, // Task handle to keep track of created task
+        0);             // Pin task to core 0
+
     // Load configuration
     config = configManager.loadConfig();
 
@@ -248,8 +358,17 @@ void setup()
     configManager.printConfig(config);
 
     // Setup WiFi
+    wifiState = WIFI_AP_MODE; // Mode AP activé au démarrage
     wifiManager.setupAccessPoint("ESP32_WROOM_SOLAR_ROUTER");
-    wifiManager.connect(config.wifi.ssid.c_str(), config.wifi.password.c_str(), 5);
+    String ip = wifiManager.connect(config.wifi.ssid.c_str(), config.wifi.password.c_str(), pinLedRed, 5);
+    if (ip != "")
+    {
+        wifiState = WIFI_CONNECTED; // WiFi connecté
+    }
+    else
+    {
+        wifiState = WIFI_AP_MODE; // Reste en mode AP
+    }
 
     // Setup LittleFS
     setupSpiffs();
@@ -282,32 +401,6 @@ void setup()
         strftime(timeStr, sizeof(timeStr), "%A, %B %d %Y %H:%M:%S", &timeinfo_local);
         Serial.print("    - Date/Heure locale: ");
         Serial.println(timeStr);
-
-        // // Calcul lever et coucher du soleil
-        // struct tm sunrise = solarManager->calculateSunrise(config.solar.latitude, config.solar.longitude);
-        // struct tm sunset = solarManager->calculateSunset(config.solar.latitude, config.solar.longitude);
-
-        // if (sunrise.tm_year != -1)
-        // {
-        //     strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &sunrise);
-        //     Serial.print("    - Lever du soleil: ");
-        //     Serial.println(timeStr);
-        // }
-        // else
-        // {
-        //     Serial.println("    - Lever du soleil: (erreur)");
-        // }
-
-        // if (sunset.tm_year != -1)
-        // {
-        //     strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &sunset);
-        //     Serial.print("    - Coucher du soleil: ");
-        //     Serial.println(timeStr);
-        // }
-        // else
-        // {
-        //     Serial.println("    - Coucher du soleil: (erreur)");
-        // }
     }
 
     // Setup MQTT
@@ -324,13 +417,13 @@ void setup()
     timerAlarmWrite(timer, 100, true);
     timerAlarmEnable(timer);
 
-    // Create tasks
+    // Create remaining tasks
     xTaskCreatePinnedToCore(
         signalProcessingTask,        // Task function
         "SignalProcessingTask",      // Name of the task
         10000,                       // Stack size of task
         NULL,                        // Parameter of the task
-        1,                           // Priority of the task
+        3,                           // Priority of the task (highest)
         &SignalProcessingTaskHandle, // Task handle to keep track of created task
         0);                          // Pin task to core 0
 
@@ -339,7 +432,7 @@ void setup()
         "CommunicationTask",      // Name of the task
         10000,                    // Stack size of task
         NULL,                     // Parameter of the task
-        1,                        // Priority of the task
+        2,                        // Priority of the task (medium)
         &CommunicationTaskHandle, // Task handle to keep track of created task
         1);                       // Pin task to core 1
 }
