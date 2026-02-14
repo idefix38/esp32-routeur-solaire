@@ -35,7 +35,8 @@ export type shellyEmConfig ={
 export type boilerConfig= {
     mode: string; // Auto, On ou Off  Auto = Routeur solaire , On = Marche forcée
     temperature?: number; // Températue cible du chauffe eau
-    periods?: period[]; // List of heating periods    
+    periods?: period[]; // List of heating periods
+    triacOpening?: number; // Pourcentage d'ouverture du triac en mode manuel (0-100)
 }
 
 

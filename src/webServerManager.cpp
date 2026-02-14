@@ -58,6 +58,7 @@ void WebServerManager::handleGetConfig(AsyncWebServerRequest *request)
     JsonObject boilerObj = doc["boiler"].to<JsonObject>();
     boilerObj["mode"] = config.boiler.mode;
     boilerObj["temperature"] = config.boiler.temperature;
+    boilerObj["triacOpening"] = config.boiler.triacOpening;
     JsonArray boilerPeriods = boilerObj["periods"].to<JsonArray>();
     for (const auto &p : config.boiler.periods)
     {
@@ -217,6 +218,7 @@ void WebServerManager::handleSaveBoilerSettings(AsyncWebServerRequest *request, 
 
     configTmp.boiler.mode = doc["mode"] | "auto";
     configTmp.boiler.temperature = doc["temperature"] | 50;
+    configTmp.boiler.triacOpening = doc["triacOpening"] | 50;
     if (!doc["periods"].isNull())
     {
         configTmp.boiler.periods.clear();

@@ -12,8 +12,9 @@ SolarManager::SolarManager(uint8_t _pinTriac, uint8_t _pinZeroCross)
 void SolarManager::begin()
 {
     pinMode(_pinTriac, OUTPUT);
-    pinMode(_pinZeroCross, INPUT);
+    pinMode(_pinZeroCross, INPUT_PULLUP); // Essayer avec PULLUP pour l'optocoupleur
     digitalWrite(_pinTriac, LOW);
+    Serial.printf("[SolarManager] Pins initialized - Triac: %d, ZeroCross: %d (INPUT_PULLUP)\n", _pinTriac, _pinZeroCross);
 }
 
 void IRAM_ATTR SolarManager::onTimerStatic()
@@ -31,6 +32,9 @@ void IRAM_ATTR SolarManager::onZeroCrossStatic()
 /**
  * Méthode executée toutes les 100 microsecondes, pour gérer l'ouverture du triac
  * Passe 100 fois par demi-cycle de la sinusoide
+ * Le triac nécessite une impulsion très courte (10-100µs) pour s'amorcer
+ * IMPORTANT: powerDelay va de 0 (100% puissance) à 100 (0% puissance)
+ * Avec un timer à 100µs, une demi-période de 10ms = 100 comptages
  */
 void SolarManager::handleTimer()
 {
@@ -104,11 +108,11 @@ float SolarManager::updateRegulation(float power)
 
 /**
  * Marche forcée du triac
+ * On met powerDelay à 0 pour déclencher immédiatement après chaque zero-cross
  */
 void SolarManager::On()
 {
     powerDelay = 0;
-    digitalWrite(_pinTriac, HIGH);
 }
 
 /**

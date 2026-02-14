@@ -36,6 +36,7 @@ bool ConfigManager::saveConfig(const Config &config)
     // Boiler
     _preferences.putString("b.mode", config.boiler.mode.c_str());
     _preferences.putInt("b.temp", config.boiler.temperature);
+    _preferences.putInt("b.triac", config.boiler.triacOpening);
     _preferences.putUInt("b.p.size", config.boiler.periods.size());
     for (size_t i = 0; i < config.boiler.periods.size(); ++i)
     {
@@ -90,6 +91,7 @@ Config ConfigManager::loadConfig()
     // Boiler
     config.boiler.mode = _preferences.getString("b.mode", "auto").c_str();
     config.boiler.temperature = _preferences.getInt("b.temp", 50);
+    config.boiler.triacOpening = _preferences.getInt("b.triac", 50);
     size_t boilerPeriodsSize = _preferences.getUInt("b.p.size", 0);
     config.boiler.periods.clear();
     for (size_t i = 0; i < boilerPeriodsSize; ++i)
@@ -178,6 +180,8 @@ void ConfigManager::printConfig(const Config &config)
     Serial.println(config.boiler.mode.c_str());
     Serial.print("  Temperature: ");
     Serial.println(config.boiler.temperature);
+    Serial.print("  Triac Opening: ");
+    Serial.println(config.boiler.triacOpening);
     Serial.println("  Periods:");
     for (size_t i = 0; i < config.boiler.periods.size(); ++i)
     {

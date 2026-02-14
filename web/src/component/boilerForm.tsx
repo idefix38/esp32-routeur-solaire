@@ -23,6 +23,7 @@ export const BoilerForm = ({ onSubmit, boilerSettings, loading, sunRiseMinutes,s
   const temperatureRef = useRef<HTMLInputElement>(null);
   const [periods, setPeriods] = useState<PeriodType[]>([]);
   const [currentMode, setCurrentMode] = useState(boilerSettings?.mode?.toLowerCase() || 'auto');
+  const [triacOpening, setTriacOpening] = useState(boilerSettings?.triacOpening || 50);
 
   const handleModeChange = (e: Event) => {
     setCurrentMode((e.target as HTMLInputElement).value);
@@ -33,6 +34,7 @@ export const BoilerForm = ({ onSubmit, boilerSettings, loading, sunRiseMinutes,s
     let initialPeriods: PeriodType[] = [];
     if (boilerSettings) {
       setCurrentMode(boilerSettings.mode.toLowerCase() || 'auto');
+      setTriacOpening(boilerSettings.triacOpening || 50);
       if (temperatureRef.current) {
         temperatureRef.current.value = boilerSettings.temperature?.toString() || '50';
       }
@@ -73,7 +75,8 @@ export const BoilerForm = ({ onSubmit, boilerSettings, loading, sunRiseMinutes,s
     const newSettings: boilerConfig = {
       mode: currentMode,
       temperature: parseFloat(temperatureRef.current?.value || "50"),
-      periods: periods.map(({ start, end, mode, startSunrise, startSunset, endSunrise, endSunset }) => ({ start, end, mode, startSunrise, startSunset, endSunrise, endSunset }))
+      periods: periods.map(({ start, end, mode, startSunrise, startSunset, endSunrise, endSunset }) => ({ start, end, mode, startSunrise, startSunset, endSunrise, endSunset })),
+      triacOpening: currentMode === 'manual' ? triacOpening : undefined
     };
     onSubmit(newSettings);
   }
@@ -117,6 +120,17 @@ export const BoilerForm = ({ onSubmit, boilerSettings, loading, sunRiseMinutes,s
           />
           <span className="ml-2">On (Marche forcé)</span>
         </label>
+        <label className="inline-flex items-center mr-4">
+          <input
+            type="radio"
+            name="mode"
+            value="manual"
+            className="form-radio text-indigo-600"
+            checked={currentMode === 'manual'}
+            onChange={handleModeChange}
+          />
+          <span className="ml-2">Manuel</span>
+        </label>
         <label className="inline-flex items-center">
           <input
             type="radio"
@@ -129,6 +143,29 @@ export const BoilerForm = ({ onSubmit, boilerSettings, loading, sunRiseMinutes,s
           <span className="ml-2">Off (Stop forcé)</span>
         </label>
       </div>
+
+      {currentMode === 'manual' && (
+        <div>
+          <label htmlFor="triacOpening" className="block text-sm font-medium text-gray-700 mb-2">
+            Pourcentage d'ouverture du triac : {triacOpening}%
+          </label>
+          <input
+            id="triacOpening"
+            name="triacOpening"
+            type="range"
+            min="0"
+            max="100"
+            value={triacOpening}
+            onChange={(e) => setTriacOpening(parseInt((e.target as HTMLInputElement).value))}
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+          />
+          <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <span>0%</span>
+            <span>50%</span>
+            <span>100%</span>
+          </div>
+        </div>
+      )}
 
       {currentMode === 'auto' && (
         <>

@@ -47,6 +47,7 @@ struct BoilerConfig
     std::string mode;
     int temperature;
     std::vector<Period> periods;
+    int triacOpening; // Pourcentage d'ouverture du triac en mode manuel (0-100)
 };
 
 // Structure pour la configuration solaire

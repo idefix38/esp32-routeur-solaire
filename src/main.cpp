@@ -190,6 +190,12 @@ void signalProcessingTask(void *pvParameters)
                 temperatureReached = true;
                 triacMode = TRIAC_OFF;
             }
+            else if (mode == "Manual" || mode == "manual")
+            {
+                // Mode "Manuel"
+                triacMode = TRIAC_FORCED_ON;
+                triacOpeningPercentage = config.boiler.triacOpening;
+            }
             else if ((mode == "Auto" || mode == "auto") && periodMode == "AUTO")
             {
                 // Mode automatique
